@@ -1,0 +1,20 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function authed() { 
+      return request.auth != null; 
+    }
+    
+    match /buildings/{b}/wo/{wo}/{file} {
+      allow read, write: if authed(); // tie UI to Firestore rules to gate listing
+    }
+    
+    match /buildings/{b}/documents/{file} {
+      allow read, write: if authed();
+    }
+    
+    match /buildings/{b}/media/{file} {
+      allow read, write: if authed();
+    }
+  }
+}

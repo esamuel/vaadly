@@ -1,0 +1,9 @@
+---
+description: firebase/firestore 
+.    
+        
+
+globs:
+alwaysApply: true
+---
+all new data should be integrate to fierbase -firestore , always check it

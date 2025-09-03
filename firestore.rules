@@ -1,0 +1,170 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions for user authentication and authorization
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isAppOwner() {
+      return isAuthenticated() && getUserData().role == 'appOwner';
+    }
+    
+    function isBuildingCommittee() {
+      return isAuthenticated() && getUserData().role == 'buildingCommittee';
+    }
+    
+    function isResident() {
+      return isAuthenticated() && getUserData().role == 'resident';
+    }
+    
+    function hasAccessToBuilding(buildingId) {
+      return isAppOwner() || 
+             (buildingId in getUserData().buildingAccess);
+    }
+    
+    function canManageBuilding(buildingId) {
+      return isAppOwner() || 
+             (getUserData().buildingAccess[buildingId] == 'admin');
+    }
+    
+    function canEditBuilding(buildingId) {
+      return isAppOwner() || 
+             (getUserData().buildingAccess[buildingId] in ['write', 'admin']);
+    }
+
+    // Production: No global allow-all. Access is controlled per-collection below.
+
+    // Users collection - only authenticated users can read their own data
+    // Only app owners can create/manage users
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId ||  // Users can read their own profile
+        isAppOwner()                   // App owners can read all user profiles
+      );
+      
+      allow write: if isAppOwner() ||  // App owners can create/update users
+                      (isAuthenticated() && request.auth.uid == userId && 
+                       request.resource.data.role == resource.data.role); // Users can update their own profile (but not role)
+      
+      allow create: if isAppOwner();   // Only app owners can create users
+      
+      allow delete: if isAppOwner();   // Only app owners can delete users
+    }
+
+    // Buildings collection - multi-tenant access based on user permissions
+    match /buildings/{buildingId} {
+      allow read: if hasAccessToBuilding(buildingId);
+      
+      allow write, update: if canEditBuilding(buildingId);
+      
+      allow create: if isAppOwner();   // Only app owners can create buildings
+      
+      allow delete: if isAppOwner();   // Only app owners can delete buildings
+      
+      // Building residents subcollection
+      match /residents/{residentId} {
+        allow read: if hasAccessToBuilding(buildingId);
+        
+        allow write: if canEditBuilding(buildingId) || 
+                        (isResident() && request.auth.uid == residentId);
+        
+        allow create: if canEditBuilding(buildingId);
+        
+        allow delete: if canManageBuilding(buildingId);
+      }
+      
+      // Building units subcollection
+      match /units/{unitId} {
+        allow read: if hasAccessToBuilding(buildingId) ||
+                      (isResident() && 
+                       unitId in getUserData().unitAccess &&
+                       getUserData().unitAccess[unitId] == buildingId);
+        
+        allow write: if canEditBuilding(buildingId);
+        
+        allow create: if canEditBuilding(buildingId);
+        
+        allow delete: if canManageBuilding(buildingId);
+      }
+      
+      // Maintenance requests subcollection
+      match /maintenance/{requestId} {
+        allow read: if hasAccessToBuilding(buildingId) ||
+                      (isResident() && resource.data.residentId == request.auth.uid);
+        
+        allow create: if hasAccessToBuilding(buildingId);
+        
+        allow update: if canEditBuilding(buildingId) ||
+                         (isResident() && resource.data.residentId == request.auth.uid &&
+                          request.resource.data.residentId == request.auth.uid); // Residents can only update their own requests
+        
+        allow delete: if canManageBuilding(buildingId);
+      }
+
+      // Work orders subcollection (used by backend triggers)
+      match /work_orders/{workOrderId} {
+        allow read: if hasAccessToBuilding(buildingId) ||
+                      (isResident() && resource.data.residentId == request.auth.uid);
+        
+        // Allow creation by committee and by residents for their own unit/building
+        allow create: if canEditBuilding(buildingId) || isResident();
+        
+        // Committee can update; residents can update their own requests with identity preserved
+        allow update: if canEditBuilding(buildingId) ||
+                         (isResident() && resource.data.residentId == request.auth.uid &&
+                          request.resource.data.residentId == request.auth.uid);
+        
+        allow delete: if canManageBuilding(buildingId);
+      }
+      
+      // Financial records subcollection
+      match /finances/{recordId} {
+        allow read: if hasAccessToBuilding(buildingId) ||
+                      (isResident() && resource.data.residentId == request.auth.uid);
+        
+        allow write: if canEditBuilding(buildingId);
+        
+        allow create: if canEditBuilding(buildingId);
+        
+        allow delete: if canManageBuilding(buildingId);
+      }
+      
+      // Building announcements subcollection
+      match /announcements/{announcementId} {
+        allow read: if hasAccessToBuilding(buildingId);
+        
+        allow write: if canEditBuilding(buildingId);
+        
+        allow create: if canEditBuilding(buildingId);
+        
+        allow delete: if canManageBuilding(buildingId);
+      }
+      
+      // Building settings subcollection
+      match /settings/{settingId} {
+        allow read: if hasAccessToBuilding(buildingId);
+        
+        allow write: if canManageBuilding(buildingId);
+        
+        allow create: if canManageBuilding(buildingId);
+        
+        allow delete: if canManageBuilding(buildingId);
+      }
+    }
+
+    // System-wide collections (only app owners)
+    match /system/{document=**} {
+      allow read, write: if isAppOwner();
+    }
+    
+    match /analytics/{document=**} {
+      allow read, write: if isAppOwner();
+    }
+  }
+}

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Building management app with AI integration">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Vaadly">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Vaadly - Building Management</title>
+  <link rel="manifest" href="manifest.json">
+  
+  <!-- Material Icons Font -->
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  
+  <!-- Custom CSS for proper icon display -->
+  <link rel="stylesheet" href="icons.css">
+  
+  <!-- Custom CSS for proper icon display -->
+  <style>
+    /* Ensure Material Icons display properly */
+    .material-icons {
+      font-family: 'Material Icons';
+      font-weight: normal;
+      font-style: normal;
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: normal;
+      text-transform: none;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      -moz-osx-font-smoothing: grayscale;
+      font-feature-settings: 'liga';
+    }
+    
+    /* Ensure Flutter icons display properly */
+    .flutter-icon {
+      font-family: 'Material Icons';
+      font-weight: normal;
+      font-style: normal;
+      display: inline-block;
+      white-space: nowrap;
+      word-wrap: normal;
+      direction: ltr;
+      -webkit-font-feature-settings: 'liga';
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+      -moz-osx-font-smoothing: grayscale;
+      font-feature-settings: 'liga';
+    }
+    
+    /* Fix for any icon display issues */
+    i, .icon {
+      font-family: 'Material Icons' !important;
+      font-weight: normal !important;
+      font-style: normal !important;
+      display: inline-block !important;
+      white-space: nowrap !important;
+      word-wrap: normal !important;
+      direction: ltr !important;
+      -webkit-font-feature-settings: 'liga' !important;
+      -webkit-font-smoothing: antialiased !important;
+      text-rendering: optimizeLegibility !important;
+      -moz-osx-font-smoothing: grayscale !important;
+      font-feature-settings: 'liga' !important;
+    }
+  </style>
+
+  <script>
+    // The value below is injected by flutter build, do not touch.
+    const serviceWorkerVersion = null;
+  </script>
+  <!-- This script adds the flutter initialization JS code -->
+  <script src="flutter.js" defer></script>
+  
+  <!-- Firebase Configuration -->
+  <script type="module">
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+    // Your web app's Firebase configuration
+    // Firebase configuration for vaadly-project
+    const firebaseConfig = {
+      apiKey: "AIzaSyCECD0DgUvAn3MIzykYIJSMzGoFwwGFrcg",
+      authDomain: "vaadly-project.firebaseapp.com",
+      projectId: "vaadly-project",
+      storageBucket: "vaadly-project.firebasestorage.app",
+      messagingSenderId: "572309876935",
+      appId: "1:572309876935:web:a1b48a9a92058ce34ccee2"
+    };
+    
+    console.log("✅ Firebase config loaded successfully");
+    console.log("🏢 Project: " + firebaseConfig.projectId);
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    
+    // Make Firebase available globally for Flutter
+    window.firebaseApp = app;
+    window.firebaseDb = db;
+    window.firebaseAuth = auth;
+
+    // Ensure we have an authenticated user (anonymous) so Firestore rules requiring auth will pass
+    try {
+      const cred = await signInAnonymously(auth);
+      console.log("🔐 Signed in anonymously. UID:", cred.user?.uid);
+    } catch (e) {
+      console.error("❌ Anonymous sign-in failed:", e);
+    }
+
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        window.firebaseUser = user;
+        console.log("👤 Auth state active. UID:", user.uid);
+      } else {
+        console.warn("⚠️ No authenticated user.");
+      }
+    });
+  </script>
+</head>
+<body>
+  <script>
+    window.addEventListener('load', function(ev) {
+      // Download main.dart.js
+      _flutter.loader.loadEntrypoint({
+        serviceWorker: {
+          serviceWorkerVersion: serviceWorkerVersion,
+        },
+        onEntrypointLoaded: function(engineInitializer) {
+          engineInitializer.initializeEngine().then(function(appRunner) {
+            appRunner.runApp();
+          });
+        }
+      });
+    });
+    
+    // Additional fix for icon display issues
+    document.addEventListener('DOMContentLoaded', function() {
+      // Ensure Material Icons font is loaded
+      if (document.fonts) {
+        document.fonts.load('24px Material Icons').then(function() {
+          console.log('✅ Material Icons font loaded successfully');
+        }).catch(function(error) {
+          console.warn('⚠️ Material Icons font loading issue:', error);
+        });
+      }
+    });
+  </script>
+</body>
+</html>
