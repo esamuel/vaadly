@@ -209,6 +209,7 @@ class BuildingService {
     // Create sample building
     final building = Building(
       id: '1',
+      buildingCode: 'vaadly-tlv',
       name: 'בניין וודלי',
       address: 'רחוב הרצל 123',
       city: 'תל אביב',

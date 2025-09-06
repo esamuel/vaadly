@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/models/vendor.dart';
 import '../services/firebase_vendor_service.dart';
-
+import '../core/services/building_context_service.dart';
 class FirebaseVendorPage extends StatefulWidget {
   const FirebaseVendorPage({super.key});
 
@@ -38,8 +38,11 @@ class _FirebaseVendorPageState extends State<FirebaseVendorPage>
     setState(() => _loading = true);
 
     try {
-      // Initialize sample data if needed
-      await FirebaseVendorService.initializeSampleVendorData();
+      // Initialize sample data if needed for current building (if available)
+      final buildingId = BuildingContextService.currentBuilding?.buildingId;
+      if (buildingId != null) {
+        await FirebaseVendorService.initializeSampleVendorDataForBuilding(buildingId);
+      }
 
       // Load data
       final vendors = await FirebaseVendorService.getAllVendors();

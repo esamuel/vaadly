@@ -24,6 +24,7 @@ enum VendorStatus {
 
 class Vendor {
   final String id;
+  final String? buildingId;
   final String name;
   final String contactPerson;
   final String phone;
@@ -50,6 +51,7 @@ class Vendor {
 
   Vendor({
     required this.id,
+    this.buildingId,
     required this.name,
     required this.contactPerson,
     required this.phone,
@@ -145,6 +147,7 @@ class Vendor {
   factory Vendor.fromMap(Map<String, dynamic> map) {
     return Vendor(
       id: map['id'] ?? '',
+      buildingId: map['buildingId'],
       name: map['name'] ?? '',
       contactPerson: map['contactPerson'] ?? '',
       phone: map['phone'] ?? '',
@@ -182,6 +185,7 @@ class Vendor {
   Map<String, dynamic> toMap() {
     return {
       'id': id,
+      'buildingId': buildingId,
       'name': name,
       'contactPerson': contactPerson,
       'phone': phone,

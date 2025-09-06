@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../../core/models/building.dart';
+import '../../../../core/models/building.dart';
+import '../../../../core/utils/phone_number_formatter.dart';
 
 class AddBuildingForm extends StatefulWidget {
   final Function(Building) onBuildingAdded;
@@ -131,6 +132,8 @@ class _AddBuildingFormState extends State<AddBuildingForm> {
     if (_formKey.currentState!.validate()) {
       final building = Building(
         id: widget.buildingToEdit?.id ?? '',
+        buildingCode: widget.buildingToEdit?.buildingCode ?? 
+            _nameController.text.trim().toLowerCase().replaceAll(' ', '-').replaceAll(RegExp(r'[^\w\-]'), ''),
         name: _nameController.text.trim(),
         address: _addressController.text.trim(),
         city: _cityController.text.trim(),
@@ -178,6 +181,10 @@ class _AddBuildingFormState extends State<AddBuildingForm> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Text(isEditing ? 'ערוך בניין' : 'הוסף בניין חדש'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         centerTitle: true,
@@ -491,7 +498,11 @@ class _AddBuildingFormState extends State<AddBuildingForm> {
                 hintText: 'מספר טלפון מנהל הבניין (אופציונלי)',
               ),
               keyboardType: TextInputType.phone,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              textDirection: TextDirection.ltr,
+              inputFormatters: [
+                PhoneNumberFormatter(),
+                LengthLimitingTextInputFormatter(13),
+              ],
             ),
             const SizedBox(height: 16),
 
@@ -540,7 +551,11 @@ class _AddBuildingFormState extends State<AddBuildingForm> {
                 hintText: 'מספר טלפון לחירום (אופציונלי)',
               ),
               keyboardType: TextInputType.phone,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              textDirection: TextDirection.ltr,
+              inputFormatters: [
+                PhoneNumberFormatter(),
+                LengthLimitingTextInputFormatter(13),
+              ],
             ),
             const SizedBox(height: 16),
 

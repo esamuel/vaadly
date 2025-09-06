@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/models/maintenance_request.dart';
+import '../../core/services/building_context_service.dart';
+import '../../services/firebase_activity_service.dart';
+import '../../services/firebase_maintenance_service.dart';
+import '../../services/firebase_vendor_service.dart';
 
 class MaintenanceDashboard extends StatefulWidget {
   const MaintenanceDashboard({super.key});
@@ -12,6 +16,7 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
   int _selectedFilterIndex = 0;
   List<MaintenanceRequest> _requests = [];
   bool _loading = false;
+  Stream<List<MaintenanceRequest>>? _requestStream;
 
   final List<String> _filterOptions = [
     'הכל',
@@ -32,6 +37,14 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
 
     // Simulate loading maintenance requests
     await Future.delayed(const Duration(milliseconds: 500));
+
+    // If building context exists, prefer Firestore stream
+    final buildingId = BuildingContextService.buildingId;
+    if (buildingId != null) {
+      _requestStream = _firestoreStream(buildingId);
+      setState(() => _loading = false);
+      return;
+    }
 
     _requests = [
       MaintenanceRequest(
@@ -94,6 +107,27 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
     ];
 
     setState(() => _loading = false);
+  }
+
+  Stream<List<MaintenanceRequest>> _firestoreStream(String buildingId) {
+    return FirebaseMaintenanceService.streamMaintenanceRequests(buildingId);
+  }
+
+  List<MaintenanceRequest> _applyFilterTo(List<MaintenanceRequest> src) {
+    if (_selectedFilterIndex == 0) return src;
+
+    if (_selectedFilterIndex == 4) {
+      return src.where((req) => req.priority == MaintenancePriority.urgent).toList();
+    }
+
+    final statusMap = {
+      1: MaintenanceStatus.pending,
+      2: MaintenanceStatus.inProgress,
+      3: MaintenanceStatus.completed,
+    };
+
+    final status = statusMap[_selectedFilterIndex];
+    return src.where((req) => req.status == status).toList();
   }
 
   List<MaintenanceRequest> get _filteredRequests {
@@ -198,31 +232,60 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : _filteredRequests.isEmpty
-                    ? const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.build, size: 64, color: Colors.grey),
-                            SizedBox(height: 16),
-                            Text('אין בקשות תחזוקה',
-                                style: TextStyle(
-                                    fontSize: 18, color: Colors.grey)),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        itemCount: _filteredRequests.length,
-                        itemBuilder: (context, index) {
-                          final request = _filteredRequests[index];
-                          return _buildRequestCard(request);
+                : _requestStream != null
+                    ? StreamBuilder<List<MaintenanceRequest>>(
+                        stream: _requestStream,
+                        builder: (context, snapshot) {
+                          final data = snapshot.data ?? _requests;
+                          final shown = _applyFilterTo(data);
+                          if (shown.isEmpty) {
+                            return const Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.build, size: 64, color: Colors.grey),
+                                  SizedBox(height: 16),
+                                  Text('אין בקשות תחזוקה',
+                                      style: TextStyle(fontSize: 18, color: Colors.grey)),
+                                ],
+                              ),
+                            );
+                          }
+                          return ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: shown.length,
+                            itemBuilder: (context, index) {
+                              final request = shown[index];
+                              return _buildRequestCard(request);
+                            },
+                          );
                         },
-                      ),
+                      )
+                    : _filteredRequests.isEmpty
+                        ? const Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.build, size: 64, color: Colors.grey),
+                                SizedBox(height: 16),
+                                Text('אין בקשות תחזוקה',
+                                    style: TextStyle(fontSize: 18, color: Colors.grey)),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: _filteredRequests.length,
+                            itemBuilder: (context, index) {
+                              final request = _filteredRequests[index];
+                              return _buildRequestCard(request);
+                            },
+                          ),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: "maintenance_fab",
         onPressed: () => _showAddRequestDialog(),
         icon: const Icon(Icons.add),
         label: const Text('בקשה חדשה'),
@@ -422,11 +485,52 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('סגור'),
           ),
+          ElevatedButton(
+            onPressed: () async {
+              // Assign to vendor
+              final vendor = await _pickVendor(request.buildingId);
+              if (vendor != null) {
+                await FirebaseMaintenanceService.assignToVendor(request.buildingId, request.id, vendor['id']!, vendor['name']!);
+                await FirebaseActivityService.logActivity(
+                  buildingId: request.buildingId,
+                  type: 'maintenance_assigned',
+                  title: 'הוקצה לספק',
+                  subtitle: vendor['name']!,
+                );
+                if (mounted) setState(() {});
+              }
+            },
+            child: const Text('שייך לספק'),
+          ),
+          if (request.status == MaintenanceStatus.pending)
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                // Start work in Firestore
+                await FirebaseMaintenanceService.startWork(request.buildingId, request.id);
+                await FirebaseActivityService.logActivity(
+                  buildingId: request.buildingId,
+                  type: 'maintenance_started',
+                  title: 'טיפול התחיל',
+                  subtitle: request.title,
+                );
+                setState(() {});
+              },
+              child: const Text('התחל טיפול'),
+            ),
           if (request.status != MaintenanceStatus.completed)
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(context).pop();
-                _updateRequestStatus(request, MaintenanceStatus.completed);
+                // Complete in Firestore
+                await FirebaseMaintenanceService.completeWork(request.buildingId, request.id, '');
+                await FirebaseActivityService.logActivity(
+                  buildingId: request.buildingId,
+                  type: 'maintenance_completed',
+                  title: 'טיפול הושלם',
+                  subtitle: request.title,
+                );
+                setState(() {});
               },
               child: const Text('סמן כהושלם'),
             ),
@@ -436,10 +540,56 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
   }
 
   void _showAddRequestDialog() {
-    // TODO: Implement add request dialog
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-          content: Text('הוספת בקשה חדשה - תכונה זו תהיה זמינה בקרוב')),
+    showDialog(
+      context: context,
+      builder: (context) => _AddMaintenanceRequestDialog(
+        onSubmit: (request) async {
+          // Persist to Firestore if possible
+          final buildingId = request.buildingId;
+          String? savedId;
+          if (buildingId.isNotEmpty) {
+            savedId = await FirebaseMaintenanceService.addMaintenanceRequest(buildingId, request);
+          }
+          if (savedId == null) {
+            // Fallback locally
+            setState(() {
+              _requests.insert(0, request);
+            });
+          }
+        },
+      ),
+    );
+  }
+
+  Future<Map<String, String>?> _pickVendor(String buildingId) async {
+    final vendors = await FirebaseVendorService.getAllVendors();
+    return await showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('בחר ספק'),
+        content: SizedBox(
+          width: 420,
+          height: 360,
+          child: ListView.builder(
+            itemCount: vendors.length,
+            itemBuilder: (context, index) {
+              final v = vendors[index];
+              return ListTile(
+                leading: const Icon(Icons.business),
+                title: Text(v.name),
+                subtitle: Text(v.categoriesDisplay),
+                onTap: () => Navigator.of(context).pop({'id': v.id, 'name': v.name}),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('ביטול'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -459,5 +609,184 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
 
   String _formatDateTime(DateTime dateTime) {
     return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _AddMaintenanceRequestDialog extends StatefulWidget {
+  final void Function(MaintenanceRequest request) onSubmit;
+  const _AddMaintenanceRequestDialog({required this.onSubmit});
+
+  @override
+  State<_AddMaintenanceRequestDialog> createState() => _AddMaintenanceRequestDialogState();
+}
+
+class _AddMaintenanceRequestDialogState extends State<_AddMaintenanceRequestDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _titleController = TextEditingController();
+  final _descController = TextEditingController();
+  final _locationController = TextEditingController();
+  MaintenanceCategory _category = MaintenanceCategory.general;
+  MaintenancePriority _priority = MaintenancePriority.normal;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descController.dispose();
+    _locationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('בקשת תחזוקה חדשה'),
+      content: SizedBox(
+        width: 480,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _titleController,
+                  decoration: const InputDecoration(
+                    labelText: 'כותרת *',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'נדרשת כותרת' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _descController,
+                  decoration: const InputDecoration(
+                    labelText: 'תיאור *',
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 3,
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'נדרש תיאור' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _locationController,
+                  decoration: const InputDecoration(
+                    labelText: 'מיקום',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<MaintenanceCategory>(
+                        value: _category,
+                        items: MaintenanceCategory.values.map((c) => DropdownMenuItem(
+                          value: c,
+                          child: Text(_categoryLabel(c)),
+                        )).toList(),
+                        onChanged: (v) => setState(() => _category = v ?? MaintenanceCategory.general),
+                        decoration: const InputDecoration(
+                          labelText: 'קטגוריה',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<MaintenancePriority>(
+                        value: _priority,
+                        items: MaintenancePriority.values.map((p) => DropdownMenuItem(
+                          value: p,
+                          child: Text(_priorityLabel(p)),
+                        )).toList(),
+                        onChanged: (v) => setState(() => _priority = v ?? MaintenancePriority.normal),
+                        decoration: const InputDecoration(
+                          labelText: 'עדיפות',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('ביטול'),
+        ),
+        ElevatedButton(
+          onPressed: _submit,
+          child: const Text('שמור'),
+        ),
+      ],
+    );
+  }
+
+  String _categoryLabel(MaintenanceCategory c) {
+    switch (c) {
+      case MaintenanceCategory.plumbing:
+        return 'אינסטלציה';
+      case MaintenanceCategory.electrical:
+        return 'חשמל';
+      case MaintenanceCategory.elevator:
+        return 'מעלית';
+      case MaintenanceCategory.gardening:
+        return 'גינון';
+      case MaintenanceCategory.general:
+      default:
+        return 'כללי';
+    }
+  }
+
+  String _priorityLabel(MaintenancePriority p) {
+    switch (p) {
+      case MaintenancePriority.low:
+        return 'נמוכה';
+      case MaintenancePriority.normal:
+        return 'רגילה';
+      case MaintenancePriority.high:
+        return 'גבוהה';
+      case MaintenancePriority.urgent:
+        return 'דחופה';
+    }
+  }
+
+  void _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    final now = DateTime.now();
+    final request = MaintenanceRequest(
+      id: now.millisecondsSinceEpoch.toString(),
+      buildingId: (BuildingContextService.currentBuilding?.buildingId ?? 'demo_building_1'),
+      residentId: 'committee',
+      title: _titleController.text.trim(),
+      description: _descController.text.trim(),
+      category: _category,
+      priority: _priority,
+      status: MaintenanceStatus.pending,
+      reportedAt: now,
+      location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
+      createdAt: now,
+      updatedAt: now,
+    );
+    // Log activity (best-effort)
+    try {
+      await FirebaseActivityService.logActivity(
+        buildingId: request.buildingId,
+        type: 'maintenance_created',
+        title: 'בקשת תחזוקה חדשה',
+        subtitle: request.title,
+        extra: {
+          'priority': _priorityLabel(request.priority),
+          'category': _categoryLabel(request.category),
+        },
+      );
+    } catch (_) {}
+
+    widget.onSubmit(request);
+    Navigator.of(context).pop();
   }
 }

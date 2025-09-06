@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/config/app_links.dart';
 import '../../services/firebase_building_service.dart';
+import '../../services/firebase_resident_service.dart';
+import '../../../features/residents/pages/residents_page.dart';
+import '../../../features/settings/building_settings_dashboard.dart';
 
 class BuildingDetailScreen extends StatefulWidget {
   final Map<String, dynamic> building;
@@ -18,11 +23,13 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final bool _loading = false;
+  Map<String, dynamic>? _buildingData;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
+    _loadBuildingData();
   }
 
   @override
@@ -31,20 +38,79 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
     super.dispose();
   }
 
-  void _copyBuildingLink() {
-    final link = 'http://localhost:3000/building/${widget.building['code']}';
-    Clipboard.setData(ClipboardData(text: link));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('קישור הבניין הועתק ללוח הגזירים')),
-    );
+  // Removed _getOwnerIdForBuilding - now using flat collection structure
+
+  Future<void> _loadBuildingData() async {
+    try {
+      final buildingId = widget.building['id'] as String;
+      print('🏢 Loading building data for ID: $buildingId using flat structure');
+
+      // Use flat collection structure
+      final doc = await FirebaseFirestore.instance
+          .collection('buildings')
+          .doc(buildingId)
+          .get();
+          
+      if (!doc.exists) {
+        print('⚠️ Building document does not exist: $buildingId');
+        return;
+      }
+
+      final data = doc.data()!;
+      print('✅ Building data loaded: ${data['name']}');
+      setState(() {
+        _buildingData = {
+          ...widget.building,
+          ...data,
+        };
+      });
+    } catch (e) {
+      // Keep UI responsive even if fetch fails
+      print('❌ Failed to load building data: $e');
+    }
+  }
+
+  void _copyBuildingLink() async {
+    final code = (widget.building['buildingCode'] ?? widget.building['code'] ?? '').toString();
+    if (code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא נמצא קוד בניין להעתקה')),
+      );
+      return;
+    }
+    final link = AppLinks.buildingPortal(code, canonical: true);
+    try {
+      await Clipboard.setData(ClipboardData(text: link));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('קישור הבניין הועתק ללוח הגזירים')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('שגיאה בהעתקת קישור: $e')),
+        );
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final building = widget.building;
+    final building = _buildingData ?? widget.building;
     
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              Navigator.of(context).pushReplacementNamed('/');
+            }
+          },
+        ),
         title: Text(building['name']),
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
@@ -246,7 +312,14 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: _buildStatCard('דיירים', building['residents'].toString(), Icons.people, Colors.teal),
+                child: StreamBuilder(
+                  stream: FirebaseResidentService.streamResidents(building['id'] as String),
+                  builder: (context, snapshot) {
+                    final count = snapshot.hasData ? (snapshot.data as List).length : null;
+                    final value = count != null ? count.toString() : '...';
+                    return _buildStatCard('דיירים', value, Icons.people, Colors.teal);
+                  },
+                ),
               ),
             ],
           ),
@@ -334,7 +407,7 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
                       children: [
                         Expanded(
                           child: Text(
-                            'http://localhost:3000/building/${building['code']}',
+                            AppLinks.buildingPortal(building['code'], canonical: true),
                             style: const TextStyle(
                               fontFamily: 'monospace',
                               color: Colors.blue,
@@ -367,18 +440,7 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
   }
 
   Widget _buildResidentsTab() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.people, size: 64, color: Colors.grey),
-          SizedBox(height: 16),
-          Text('ניהול דיירים', style: TextStyle(fontSize: 18)),
-          SizedBox(height: 8),
-          Text('רשימת דיירים והזמנות חדשות', style: TextStyle(color: Colors.grey)),
-        ],
-      ),
-    );
+    return ResidentsPage();
   }
 
   Widget _buildMaintenanceTab() {
@@ -412,17 +474,8 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
   }
 
   Widget _buildSettingsTab() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.settings, size: 64, color: Colors.grey),
-          SizedBox(height: 16),
-          Text('הגדרות בניין', style: TextStyle(fontSize: 18)),
-          SizedBox(height: 8),
-          Text('תצורות והעדפות לבניין זה', style: TextStyle(color: Colors.grey)),
-        ],
-      ),
+    return BuildingSettingsDashboard(
+      buildingId: widget.building['id'] as String,
     );
   }
 

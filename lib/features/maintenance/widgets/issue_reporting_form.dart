@@ -263,7 +263,7 @@ class _IssueReportingFormState extends State<IssueReportingForm> {
 
             // Unit Selection (if applicable)
             if (_availableUnits.isNotEmpty) ...[
-              DropdownButtonFormField<String>(
+              DropdownButtonFormField<String?>(
                 initialValue: _selectedUnitId,
                 decoration: const InputDecoration(
                   labelText: 'יחידה (אופציונלי)',
@@ -272,12 +272,12 @@ class _IssueReportingFormState extends State<IssueReportingForm> {
                   hintText: 'בחר יחידה אם הבעיה ספציפית ליחידה',
                 ),
                 items: [
-                  const DropdownMenuItem<String>(
+                  const DropdownMenuItem<String?>(
                     value: null,
                     child: Text('בעיה כללית בבניין'),
                   ),
                   ..._availableUnits.map((unit) {
-                    return DropdownMenuItem(
+                    return DropdownMenuItem<String?>(
                       value: unit.id,
                       child: Text('${unit.unitNumber} - ${unit.description ?? ''}'),
                     );

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/config/app_links.dart';
 import '../../services/firebase_building_service.dart';
 import '../../core/models/building.dart';
 import 'building_detail_screen.dart';
 import 'add_building_screen.dart';
+import 'package:vaadly/pages/firebase_residents_page.dart';
+import 'package:vaadly/pages/firebase_maintenance_page.dart';
+import 'package:vaadly/features/finance/financial_module/pages/financial_management_page.dart';
 
 class BuildingsListScreen extends StatefulWidget {
   const BuildingsListScreen({super.key});
@@ -13,26 +17,7 @@ class BuildingsListScreen extends StatefulWidget {
 }
 
 class _BuildingsListScreenState extends State<BuildingsListScreen> {
-  bool _loading = true;
-  List<Building> _buildings = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBuildings();
-  }
-
-  Future<void> _loadBuildings() async {
-    setState(() => _loading = true);
-    try {
-      // Load buildings from Firebase
-      _buildings = await FirebaseBuildingService.getAllBuildings();
-    } catch (e) {
-      print('❌ Error loading buildings: $e');
-    } finally {
-      setState(() => _loading = false);
-    }
-  }
+  // Switched to real-time stream; no manual loading state required
 
   Future<void> _confirmDeleteBuilding(Building building) async {
     final confirmed = await showDialog<bool>(
@@ -121,8 +106,7 @@ class _BuildingsListScreenState extends State<BuildingsListScreen> {
           ),
         );
         
-        // Refresh the buildings list
-        _loadBuildings();
+        // No need to manually refresh; StreamBuilder will update automatically
       } else {
         // Show error message
         ScaffoldMessenger.of(context).showSnackBar(
@@ -147,7 +131,10 @@ class _BuildingsListScreenState extends State<BuildingsListScreen> {
   }
 
   void _showCommitteeInvitationLink(Building building) {
-    final invitationLink = 'http://localhost:3000/#/manage/${building.buildingCode}';
+    final invitationLink = AppLinks.managePortal(
+      building.buildingCode,
+      canonical: true,
+    );
     
     showDialog(
       context: context,
@@ -181,7 +168,7 @@ class _BuildingsListScreenState extends State<BuildingsListScreen> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
+                    child: SelectableText(
                       invitationLink,
                       style: const TextStyle(
                         fontFamily: 'monospace',
@@ -190,11 +177,21 @@ class _BuildingsListScreenState extends State<BuildingsListScreen> {
                     ),
                   ),
                   IconButton(
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: invitationLink));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('קישור הועתק ללוח הגזירים')),
-                      );
+                    onPressed: () async {
+                      try {
+                        await Clipboard.setData(ClipboardData(text: invitationLink));
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('קישור הועתק ללוח הגזירים')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('שגיאה בהעתקת קישור: $e')),
+                          );
+                        }
+                      }
                     },
                     icon: const Icon(Icons.copy, size: 16),
                     tooltip: 'העתק קישור',
@@ -239,6 +236,10 @@ class _BuildingsListScreenState extends State<BuildingsListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Row(
           children: [
             Icon(Icons.business, color: Colors.indigo),
@@ -249,27 +250,22 @@ class _BuildingsListScreenState extends State<BuildingsListScreen> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           IconButton(
-            onPressed: _loadBuildings,
-            icon: const Icon(Icons.refresh),
-            tooltip: 'רענן רשימה',
-          ),
-          IconButton(
             onPressed: () async {
-              final result = await Navigator.of(context).push(
+              await Navigator.of(context).push(
                 MaterialPageRoute(builder: (context) => const AddBuildingScreen()),
               );
-              // Refresh the list when returning from add building screen
-              if (result == true) {
-                _loadBuildings();
-              }
+              // StreamBuilder updates automatically; no manual refresh needed
             },
             icon: const Icon(Icons.add_business),
             tooltip: 'הוסף בניין חדש',
           ),
         ],
       ),
-      body: _loading
-          ? const Center(
+      body: StreamBuilder<List<Building>>(
+        stream: FirebaseBuildingService.streamBuildings(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -278,82 +274,140 @@ class _BuildingsListScreenState extends State<BuildingsListScreen> {
                   Text('טוען בניינים...'),
                 ],
               ),
-            )
-          : Column(
-              children: [
-                // Summary cards
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _buildSummaryCard(
-                          'סה״כ בניינים',
-                          _buildings.length.toString(),
-                          Icons.business,
-                          Colors.indigo,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildSummaryCard(
-                          'סה״כ דירות',
-                          _buildings.fold(0, (sum, b) => sum + b.totalUnits).toString(),
-                          Icons.home,
-                          Colors.teal,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _buildSummaryCard(
-                          'סה״כ קומות',
-                          _buildings.fold(0, (sum, b) => sum + b.totalFloors).toString(),
-                          Icons.layers,
-                          Colors.orange,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _buildSummaryCard(
-                          'מספר בניינים פעילים',
-                          _buildings.where((b) => b.isActive).length.toString(),
-                          Icons.check_circle,
-                          Colors.green,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
+            );
+          }
 
-                // Buildings list
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _buildings.length,
-                    itemBuilder: (context, index) {
-                      final building = _buildings[index];
-                      return _buildBuildingCard(building);
-                    },
-                  ),
+          final buildings = snapshot.data ?? [];
+
+          return Column(
+            children: [
+              // Summary cards
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildSummaryCard(
+                        'סה״כ בניינים',
+                        buildings.length.toString(),
+                        Icons.business,
+                        Colors.indigo,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildSummaryCard(
+                        'סה״כ דירות',
+                        buildings.fold(0, (sum, b) => sum + b.totalUnits).toString(),
+                        Icons.home,
+                        Colors.teal,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildSummaryCard(
+                        'סה״כ קומות',
+                        buildings.fold(0, (sum, b) => sum + b.totalFloors).toString(),
+                        Icons.layers,
+                        Colors.orange,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildSummaryCard(
+                        'מספר בניינים פעילים',
+                        buildings.where((b) => b.isActive).length.toString(),
+                        Icons.check_circle,
+                        Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Quick actions, aligned with Owner UI style
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const AddBuildingScreen()),
+                        );
+                      },
+                      icon: const Icon(Icons.add_business),
+                      label: const Text('הוסף בניין'),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => FirebaseResidentsPage(buildings: buildings),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.people),
+                      label: const Text('דיירים'),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => FirebaseMaintenancePage(buildings: buildings),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.build),
+                      label: const Text('תחזוקה'),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const FinancialManagementPage(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.account_balance_wallet),
+                      label: const Text('ניהול כספי'),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Buildings list
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: buildings.length,
+                  itemBuilder: (context, index) {
+                    final building = buildings[index];
+                    return _buildBuildingCard(building);
+                  },
+                ),
+              ),
+            ],
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          final result = await Navigator.of(context).push(
+          await Navigator.of(context).push(
             MaterialPageRoute(builder: (context) => const AddBuildingScreen()),
           );
-          // Refresh the list when returning from add building screen
-          if (result == true) {
-            _loadBuildings();
-          }
+          // StreamBuilder updates automatically; no manual refresh needed
         },
         icon: const Icon(Icons.add),
         label: const Text('הוסף בניין'),
@@ -419,16 +473,12 @@ class _BuildingsListScreenState extends State<BuildingsListScreen> {
             'openIssues': 0, // Default
             'lastActivity': 'לפני כמה דקות',
           };
-          final result = await Navigator.of(context).push(
+          await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (context) => BuildingDetailScreen(building: buildingMap),
             ),
           );
-          
-          // If building was deleted, refresh the list
-          if (result == true) {
-            _loadBuildings();
-          }
+          // StreamBuilder updates automatically; no manual refresh needed
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(

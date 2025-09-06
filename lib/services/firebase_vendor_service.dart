@@ -4,6 +4,22 @@ import '../core/models/vendor.dart';
 class FirebaseVendorService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   
+  // Real-time stream of vendors for a building using flat structure
+  static Stream<List<Vendor>> streamVendors(String buildingId) {
+    return _firestore
+        .collection('vendors')
+        .where('buildingId', isEqualTo: buildingId)
+        .snapshots()
+        .map((snapshot) {
+          final vendors = snapshot.docs
+              .map((doc) => Vendor.fromMap({...doc.data(), 'id': doc.id}))
+              .toList();
+          // Sort by name on client side to avoid index requirement
+          vendors.sort((a, b) => a.name.compareTo(b.name));
+          return vendors;
+        });
+  }
+  
   // Get all vendors
   static Future<List<Vendor>> getAllVendors() async {
     try {
@@ -233,35 +249,40 @@ class FirebaseVendorService {
     }
   }
 
-  // Initialize sample vendor data
-  static Future<void> initializeSampleVendorData() async {
+  // Initialize sample vendor data for a specific building
+  static Future<void> initializeSampleVendorDataForBuilding(String buildingId) async {
     try {
-      // Check if vendors already exist
-      final existingVendors = await getAllVendors();
-      if (existingVendors.isNotEmpty) {
-        print('✅ Sample vendor data already exists');
+      // Check if vendors already exist for this building
+      final existingVendors = await _firestore
+          .collection('vendors')
+          .where('buildingId', isEqualTo: buildingId)
+          .get();
+      
+      if (existingVendors.docs.isNotEmpty) {
+        print('✅ Sample vendor data already exists for building $buildingId');
         return;
       }
 
-      final sampleVendors = _generateSampleVendors();
+      final sampleVendors = _generateSampleVendorsForBuilding(buildingId);
       
       for (final vendor in sampleVendors) {
         await addVendor(vendor);
       }
       
-      print('✅ Sample vendor data initialized');
+      print('✅ Sample vendor data initialized for building $buildingId');
     } catch (e) {
-      print('❌ Error initializing sample vendor data: $e');
+      print('❌ Error initializing sample vendor data for building: $e');
     }
   }
 
-  // Generate sample vendors
-  static List<Vendor> _generateSampleVendors() {
+  // Generate sample vendors for a specific building
+  static List<Vendor> _generateSampleVendorsForBuilding(String buildingId) {
     final now = DateTime.now();
     
     return [
       Vendor(
         id: '',
+        buildingId: buildingId,
         name: 'חברת חשמל כהן',
         contactPerson: 'יוסי כהן',
         phone: '050-1234567',
@@ -286,6 +307,7 @@ class FirebaseVendorService {
 
       Vendor(
         id: '',
+        buildingId: buildingId,
         name: 'חברת מעליות גולדברג',
         contactPerson: 'דוד גולדברג',
         phone: '052-9876543',
@@ -310,6 +332,7 @@ class FirebaseVendorService {
 
       Vendor(
         id: '',
+        buildingId: buildingId,
         name: 'אינסטלטור משה',
         contactPerson: 'משה לוי',
         phone: '054-5551234',
@@ -333,6 +356,7 @@ class FirebaseVendorService {
 
       Vendor(
         id: '',
+        buildingId: buildingId,
         name: 'גינון ירוק',
         contactPerson: 'שרה כהן',
         phone: '053-7778888',
@@ -357,30 +381,7 @@ class FirebaseVendorService {
 
       Vendor(
         id: '',
-        name: 'מיזוג אוויר קל',
-        contactPerson: 'אברהם גולדברג',
-        phone: '050-9990000',
-        email: 'abraham@easy-ac.co.il',
-        website: 'www.easy-ac.co.il',
-        address: 'רחוב הקיץ 12',
-        city: 'אשדוד',
-        postalCode: '77400',
-        country: 'ישראל',
-        categories: [VendorCategory.hvac],
-        status: VendorStatus.suspended,
-        licenseNumber: 'HVAC-33333',
-        insuranceInfo: 'ביטוח אחריות עד ₪800,000',
-        hourlyRate: 180.0,
-        rating: 3.8,
-        completedJobs: 28,
-        totalJobs: 35,
-        notes: 'מושהה עקב תלונות על איכות שירות',
-        createdAt: now.subtract(const Duration(days: 180)),
-        updatedAt: now.subtract(const Duration(days: 60)),
-      ),
-
-      Vendor(
-        id: '',
+        buildingId: buildingId,
         name: 'צביעה מקצועית רם',
         contactPerson: 'רם אברמוביץ',
         phone: '052-1112222',
@@ -401,53 +402,6 @@ class FirebaseVendorService {
         notes: 'מתמחה בצביעת חזיתות ופנים בניינים',
         createdAt: now.subtract(const Duration(days: 270)),
         updatedAt: now.subtract(const Duration(days: 20)),
-      ),
-
-      Vendor(
-        id: '',
-        name: 'נגרות דוד ובניו',
-        contactPerson: 'דוד ישראלי',
-        phone: '054-3334444',
-        email: 'david@carpentry-son.co.il',
-        address: 'רחוב העץ 10',
-        city: 'נתניה',
-        postalCode: '42000',
-        country: 'ישראל',
-        categories: [VendorCategory.carpentry, VendorCategory.general],
-        status: VendorStatus.active,
-        licenseNumber: 'CP-55555',
-        insuranceInfo: 'ביטוח אחריות עד ₪600,000',
-        hourlyRate: 130.0,
-        rating: 4.5,
-        completedJobs: 41,
-        totalJobs: 43,
-        notes: 'נגרות איכותית לבניינים מגורים ומסחר',
-        createdAt: now.subtract(const Duration(days: 200)),
-        updatedAt: now.subtract(const Duration(days: 10)),
-      ),
-
-      Vendor(
-        id: '',
-        name: 'אבטחה כוללת שרון',
-        contactPerson: 'מיכאל שרון',
-        phone: '050-5556666',
-        email: 'michael@sharon-security.co.il',
-        website: 'www.sharon-security.co.il',
-        address: 'רחוב הביטחון 7',
-        city: 'רחובות',
-        postalCode: '76100',
-        country: 'ישראל',
-        categories: [VendorCategory.security, VendorCategory.electrical],
-        status: VendorStatus.blacklisted,
-        licenseNumber: 'SEC-66666',
-        insuranceInfo: 'ביטוח אחריות עד ₪1,500,000',
-        hourlyRate: 160.0,
-        rating: 2.1,
-        completedJobs: 8,
-        totalJobs: 15,
-        notes: 'ברשימה שחורה עקב אי עמידה בהתחייבויות',
-        createdAt: now.subtract(const Duration(days: 90)),
-        updatedAt: now.subtract(const Duration(days: 30)),
       ),
     ];
   }
@@ -481,14 +435,5 @@ class FirebaseVendorService {
       print('❌ Error getting vendors by city: $e');
       return [];
     }
-  }
-
-  static DateTime _parseDateTime(dynamic value) {
-    if (value == null) return DateTime.now();
-    if (value is String) return DateTime.parse(value);
-    if (value.runtimeType.toString().contains('Timestamp')) {
-      return (value as dynamic).toDate() as DateTime;
-    }
-    return DateTime.now();
   }
 }

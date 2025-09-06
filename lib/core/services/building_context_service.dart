@@ -177,35 +177,46 @@ class BuildingContextService {
   // Initialize demo building context
   static Future<void> initializeDemoBuildingContext() async {
     try {
-      // Check if demo building already exists
-      final existing = await getBuildingByCode('shalom1234');
-      if (existing != null) {
+      // Check if demo building already exists with the expected ID
+      final demoBuildingDoc = await _firestore
+          .collection('buildings')
+          .doc('demo_building_1')
+          .get();
+      
+      if (demoBuildingDoc.exists) {
         print('✅ Demo building context already exists');
         return;
       }
 
-      // Create demo building with code
-      await createBuildingWithCode(
-        name: 'מגדל השלום',
-        address: 'רחוב הרצל 123',
-        city: 'תל אביב',
-        managerName: 'יוסי כהן',
-        managerPhone: '050-1234567',
-        managerEmail: 'committee@shalom-tower.co.il',
-        additionalData: {
-          'buildingCode': 'shalom1234', // Fixed code for demo
-          'totalFloors': 8,
-          'totalUnits': 24,
-          'parkingSpaces': 30,
-          'storageUnits': 24,
-          'buildingArea': 2500.0,
-          'yearBuilt': 2010,
-          'buildingType': 'residential',
-          'amenities': ['elevator', 'parking', 'garden'],
-        },
-      );
+      // Create demo building with specific ID to match user access
+      final buildingData = {
+        'buildingCode': 'shalom1234',
+        'name': 'מגדל השלום',
+        'address': 'רחוב הרצל 123',
+        'city': 'תל אביב',
+        'fullAddress': 'רחוב הרצל 123, תל אביב',
+        'buildingManager': 'יוסי כהן',
+        'managerPhone': '050-1234567',
+        'managerEmail': 'committee@shalom-tower.co.il',
+        'totalFloors': 8,
+        'totalUnits': 24,
+        'parkingSpaces': 30,
+        'storageUnits': 24,
+        'buildingArea': 2500.0,
+        'yearBuilt': 2010,
+        'buildingType': 'residential',
+        'amenities': ['elevator', 'parking', 'garden'],
+        'isActive': true,
+        'createdAt': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
 
-      print('✅ Demo building context initialized');
+      await _firestore
+          .collection('buildings')
+          .doc('demo_building_1')
+          .set(buildingData);
+
+      print('✅ Demo building context initialized with ID: demo_building_1');
     } catch (e) {
       print('❌ Failed to initialize demo building context: $e');
     }

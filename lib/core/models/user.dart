@@ -75,14 +75,26 @@ class VaadlyUser {
       return null;
     }
 
+    // Normalize role value which may be stored as 'UserRole.appOwner' or 'appOwner'
+    UserRole parseRole(dynamic raw) {
+      final v = (raw ?? '').toString();
+      final short = v.contains('.') ? v.split('.').last : v;
+      switch (short) {
+        case 'appOwner':
+          return UserRole.appOwner;
+        case 'buildingCommittee':
+          return UserRole.buildingCommittee;
+        case 'resident':
+        default:
+          return UserRole.resident;
+      }
+    }
+
     return VaadlyUser(
       id: doc.id,
       email: data['email'] ?? '',
       name: data['name'] ?? '',
-      role: UserRole.values.firstWhere(
-        (role) => role.toString() == data['role'],
-        orElse: () => UserRole.resident,
-      ),
+      role: parseRole(data['role']),
       buildingAccess: Map<String, String>.from(data['buildingAccess'] ?? {}),
       unitAccess: data['unitAccess'] != null
           ? Map<String, String>.from(data['unitAccess'])
@@ -101,7 +113,7 @@ class VaadlyUser {
     return {
       'email': email,
       'name': name,
-      'role': role.toString(),
+      'role': role.toString().split('.').last,
       'buildingAccess': buildingAccess,
       'unitAccess': unitAccess,
       'isActive': isActive,

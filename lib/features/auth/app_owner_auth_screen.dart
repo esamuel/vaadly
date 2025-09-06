@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../core/services/multi_tenant_auth_service.dart';
-import '../dashboards/app_owner_dashboard.dart';
 
 /// App Owner Authentication Screen
 /// This is where YOU (the platform owner) sign in to manage your SaaS business
@@ -17,6 +16,14 @@ class _AppOwnerAuthScreenState extends State<AppOwnerAuthScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Prefill with requested App Owner credentials for convenience
+    _emailController.text = 'samuel.eskenasy@gmail.com';
+    _passwordController.text = 'Vaadli55';
+  }
 
   @override
   void dispose() {
@@ -39,12 +46,9 @@ class _AppOwnerAuthScreenState extends State<AppOwnerAuthScreen> {
       final user = await MultiTenantAuthService.signInAsAppOwner(email, password);
 
       if (user != null && mounted) {
-        // Navigate to App Owner Dashboard
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const AppOwnerDashboard(),
-          ),
-        );
+        // Let AuthWrapper handle routing to appropriate dashboard based on user role
+        // Just trigger a rebuild by setting state
+        setState(() {});
       }
     } catch (e) {
       if (mounted) {
@@ -134,7 +138,7 @@ class _AppOwnerAuthScreenState extends State<AppOwnerAuthScreen> {
                         enabled: !_isLoading,
                         decoration: InputDecoration(
                           labelText: 'Email Address',
-                          hintText: 'your-email@vaadly.com',
+                          hintText: 'samuel.eskenasy@gmail.com',
                           prefixIcon: const Icon(Icons.email),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -260,7 +264,7 @@ class _AppOwnerAuthScreenState extends State<AppOwnerAuthScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Email: samuel.eskenasy@gmail.com\nPassword: vaadly123',
+                              'Email: samuel.eskenasy@gmail.com\nPassword: Vaadli55',
                               style: TextStyle(color: Colors.blue[700], fontSize: 13),
                             ),
                           ],

@@ -45,7 +45,7 @@ class DefaultFirebaseOptions {
     apiKey: "AIzaSyCECD0DgUvAn3MIzykYIJSMzGoFwwGFrcg",
     authDomain: "vaadly-project.firebaseapp.com",
     projectId: "vaadly-project",
-    storageBucket: "vaadly-project.firebasestorage.app",
+    storageBucket: "vaadly-project.appspot.com",
     messagingSenderId: "572309876935",
     appId: "1:572309876935:web:a1b48a9a92058ce34ccee2",
     measurementId: null, // Optional, can be null

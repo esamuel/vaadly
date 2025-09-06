@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/models/resident.dart';
+import '../../../core/services/building_context_service.dart';
+import '../../../services/firebase_building_service.dart';
 
 class PhoneNumberFormatter extends TextInputFormatter {
   @override
@@ -47,6 +49,8 @@ class AddResidentForm extends StatefulWidget {
 }
 
 class _AddResidentFormState extends State<AddResidentForm> {
+  int? _totalUnits;
+  int? _totalFloors;
   final _formKey = GlobalKey<FormState>();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -118,6 +122,7 @@ class _AddResidentFormState extends State<AddResidentForm> {
     if (widget.residentToEdit != null) {
       _populateForm(widget.residentToEdit!);
     }
+    _loadBuildingLimits();
   }
 
   void _populateForm(Resident resident) {
@@ -139,6 +144,20 @@ class _AddResidentFormState extends State<AddResidentForm> {
     // Normalize existing tags to canonical KEYS
     _selectedTags = resident.tags.map(_keyFromLabel).toList();
     _isActive = resident.isActive;
+  }
+
+  Future<void> _loadBuildingLimits() async {
+    try {
+      final id = BuildingContextService.buildingId;
+      if (id == null) return;
+      final building = await FirebaseBuildingService.getBuildingById(id);
+      if (building != null) {
+        setState(() {
+          _totalUnits = building.totalUnits;
+          _totalFloors = building.totalFloors;
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -195,8 +214,7 @@ class _AddResidentFormState extends State<AddResidentForm> {
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
       final resident = Resident(
-        id: widget.residentToEdit?.id ??
-            DateTime.now().millisecondsSinceEpoch.toString(),
+        id: widget.residentToEdit?.id ?? '',
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim(),
         apartmentNumber: _apartmentController.text.trim(),
@@ -239,6 +257,10 @@ class _AddResidentFormState extends State<AddResidentForm> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Text(isEditing ? 'ערוך דייר' : 'הוסף דייר חדש'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         centerTitle: true,
@@ -294,12 +316,18 @@ class _AddResidentFormState extends State<AddResidentForm> {
               decoration: const InputDecoration(
                 labelText: 'מספר דירה *',
                 border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.home),
               ),
               textDirection: TextDirection.rtl,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'מספר דירה הוא שדה חובה';
+                }
+                final text = value.trim();
+                final asInt = int.tryParse(text);
+                if (asInt != null && _totalUnits != null) {
+                  if (asInt < 1 || asInt > _totalUnits!) {
+                    return 'מספר הדירה חייב להיות בין 1 ל-$_totalUnits';
+                  }
                 }
                 return null;
               },
@@ -309,14 +337,23 @@ class _AddResidentFormState extends State<AddResidentForm> {
             // Floor Number
             TextFormField(
               controller: _floorController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'קומה',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.layers),
-                hintText: 'מספר קומה (אופציונלי)',
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.layers),
+                hintText: _totalFloors != null ? '1 - $_totalFloors (אופציונלי)' : 'מספר קומה (אופציונלי)',
               ),
               textDirection: TextDirection.rtl,
               keyboardType: TextInputType.number,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) return null; // optional
+                final asInt = int.tryParse(value.trim());
+                if (asInt == null) return 'יש להזין מספר תקין';
+                if (_totalFloors != null && (asInt < 1 || asInt > _totalFloors!)) {
+                  return 'מספר הקומה חייב להיות בין 1 ל-$_totalFloors';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 16),
 

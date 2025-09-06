@@ -2,17 +2,19 @@ import 'package:flutter/material.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/building_context_service.dart';
 import '../../core/services/resident_service.dart';
-import '../../core/models/user.dart';
 import '../../services/firebase_building_service.dart';
 import '../../services/firebase_resident_service.dart';
 import '../../core/models/building.dart';
+import '../../core/models/resident.dart';
 import '../auth/auth_screen.dart';
 import '../management/resident_invitation_screen.dart';
 import '../residents/pages/residents_page.dart';
 import '../residents/widgets/add_resident_form.dart';
 import '../maintenance/maintenance_dashboard.dart';
-import '../financial/financial_dashboard.dart';
+import '../finance/financial_module/financial_dashboard.dart';
 import '../settings/building_settings_dashboard.dart';
+import '../resources/resource_management_page.dart';
+import '../../services/firebase_activity_service.dart';
 
 class CommitteeDashboard extends StatefulWidget {
   const CommitteeDashboard({super.key});
@@ -133,6 +135,10 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Row(
           children: [
             const Icon(Icons.business, color: Colors.indigo),
@@ -188,62 +194,15 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
           : IndexedStack(
               index: _selectedIndex,
               children: [
-                _buildDashboardTab(),
+                _buildDashboardTab(buildingId),
                 _buildResidentsTab(),
+                _buildResourcesTab(),
                 _buildMaintenanceTab(),
                 _buildFinancialTab(),
                 _buildSettingsTab(),
               ],
             ),
-      floatingActionButton: _selectedIndex == 1
-          ? FloatingActionButton.extended(
-              onPressed: () async {
-                final result = await Navigator.of(context).push<bool>(
-                  MaterialPageRoute(
-                    builder: (context) => AddResidentForm(
-                      onResidentAdded: (resident) async {
-                        final user = AuthService.currentUser;
-                        if (user != null && user.isBuildingCommittee) {
-                          final buildingId = user.buildingAccess.keys.first;
-                          try {
-                            final newId =
-                                await FirebaseResidentService.addResident(
-                                    buildingId, resident);
-                            if (newId != null) {
-                              Navigator.of(context).pop(true); // Return success
-                            }
-                          } catch (e) {
-                            Navigator.of(context).pop(false); // Return failure
-                          }
-                        }
-                      },
-                    ),
-                  ),
-                );
-
-                if (result == true) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('הדייר נוסף בהצלחה'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                  setState(() {}); // Refresh the dashboard
-                } else if (result == false) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('שגיאה בהוספת הדייר'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              },
-              icon: const Icon(Icons.person_add),
-              label: const Text('הוסף דייר'),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Colors.white,
-            )
-          : null,
+      floatingActionButton: null, // Remove duplicate FAB - ResidentsPage handles this
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
@@ -258,6 +217,10 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
           BottomNavigationBarItem(
             icon: Icon(Icons.people),
             label: 'דיירים',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.inventory_2),
+            label: 'משאבים',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.build),
@@ -276,7 +239,7 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
     );
   }
 
-  Widget _buildDashboardTab() {
+  Widget _buildDashboardTab(String? buildingId) {
     final user = AuthService.currentUser!;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -343,51 +306,92 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
                 ?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          FutureBuilder<Map<String, dynamic>>(
-            future: Future.value(ResidentService.getResidentStatistics()),
-            builder: (context, snapshot) {
-              final stats = snapshot.data ?? {};
-              return Column(
+          Builder(builder: (context) {
+            if (buildingId == null) {
+              return Row(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                          child: _buildStatCard(
-                              'סה״כ דירות',
-                              '${_building?.totalUnits ?? 24}',
-                              Icons.apartment,
-                              Colors.blue)),
-                      const SizedBox(width: 16),
-                      Expanded(
-                          child: _buildStatCard(
-                              'דיירים',
-                              '${stats['total'] ?? 0}',
-                              Icons.people,
-                              Colors.teal)),
-                    ],
+                  Expanded(
+                    child: _buildStatCard(
+                      'סה״כ דירות',
+                      '${_building?.totalUnits ?? 0}',
+                      Icons.apartment,
+                      Colors.blue,
+                    ),
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                          child: _buildStatCard(
-                              'דיירים פעילים',
-                              '${stats['active'] ?? 0}',
-                              Icons.check_circle,
-                              Colors.green)),
-                      const SizedBox(width: 16),
-                      Expanded(
-                          child: _buildStatCard(
-                              'בעלי דירה',
-                              '${stats['owners'] ?? 0}',
-                              Icons.home_outlined,
-                              Colors.indigo)),
-                    ],
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: _buildStatCard(
+                      'דיירים',
+                      '0',
+                      Icons.people,
+                      Colors.teal,
+                    ),
                   ),
                 ],
               );
-            },
-          ),
+            }
+            return StreamBuilder<List<Resident>>(
+              stream: FirebaseResidentService.streamResidents(buildingId),
+              builder: (context, snapshot) {
+                final residents = snapshot.data ?? const <Resident>[];
+                final total = residents.length;
+                final active = residents
+                    .where((r) => r.isActive && r.status == ResidentStatus.active)
+                    .length;
+                final owners = residents
+                    .where((r) => r.residentType == ResidentType.owner)
+                    .length;
+
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            'סה״כ דירות',
+                            '${_building?.totalUnits ?? 0}',
+                            Icons.apartment,
+                            Colors.blue,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildStatCard(
+                            'דיירים',
+                            '$total',
+                            Icons.people,
+                            Colors.teal,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildStatCard(
+                            'דיירים פעילים',
+                            '$active',
+                            Icons.check_circle,
+                            Colors.green,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildStatCard(
+                            'בעלי דירה',
+                            '$owners',
+                            Icons.home_outlined,
+                            Colors.indigo,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            );
+          }),
           const SizedBox(height: 20),
 
           // Recent activity
@@ -399,35 +403,46 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
                 ?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          Card(
-            child: Column(
-              children: [
-                _buildActivityItem(
-                  'דייר חדש נוסף',
-                  'מיכל רוזן - דירה 7',
-                  Icons.person_add,
-                  Colors.green,
-                  'היום',
+          Builder(builder: (context) {
+            final buildingId = BuildingContextService.buildingId;
+            if (buildingId == null) {
+              return const Card(
+                child: ListTile(
+                  title: Text('אין בניין פעיל'),
+                  subtitle: Text('לא ניתן לטעון פעילות אחרונה ללא מזהה בניין'),
                 ),
-                const Divider(),
-                _buildActivityItem(
-                  'עדכון פרטי דייר',
-                  'יוסי כהן - דירה 1',
-                  Icons.edit,
-                  Colors.blue,
-                  'אתמול',
-                ),
-                const Divider(),
-                _buildActivityItem(
-                  'דייר פעיל במערכת',
-                  'דוד ישראלי - דירה 5',
-                  Icons.check_circle,
-                  Colors.teal,
-                  'לפני יומיים',
-                ),
-              ],
-            ),
-          ),
+              );
+            }
+            return Card(
+              child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: FirebaseActivityService.streamRecentActivities(buildingId, limit: 5),
+                builder: (context, snapshot) {
+                  final items = snapshot.data ?? const [];
+                  if (items.isEmpty) {
+                    return const ListTile(
+                      leading: Icon(Icons.info_outline),
+                      title: Text('אין פעילות אחרונה'),
+                      subtitle: Text('הפעולות האחרונות יוצגו כאן'),
+                    );
+                  }
+                  return Column(
+                    children: [
+                      for (int i = 0; i < items.length; i++) ...[
+                        _buildActivityItem(
+                          items[i]['title'] ?? 'פעילות',
+                          items[i]['subtitle'] ?? '',
+                          _activityIcon(items[i]['type'] ?? ''),
+                          _activityColor(items[i]['type'] ?? ''),
+                          _relativeTime(items[i]['createdAt'] ?? ''),
+                        ),
+                        if (i != items.length - 1) const Divider(),
+                      ]
+                    ],
+                  );
+                },
+              ),
+            );
+          }),
           const SizedBox(height: 20),
 
           // Quick actions
@@ -471,11 +486,22 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
   }
 
   Widget _buildResidentsTab() {
-    return const ResidentsPage(showFloatingActionButton: false);
+    return const ResidentsPage(showFloatingActionButton: true);
   }
 
   Widget _buildMaintenanceTab() {
     return const MaintenanceDashboard();
+  }
+
+  Widget _buildResourcesTab() {
+    final buildingId = BuildingContextService.buildingId ??
+        (AuthService.currentUser?.accessibleBuildings.isNotEmpty == true
+            ? AuthService.currentUser!.accessibleBuildings.first
+            : null);
+    if (buildingId == null) {
+      return const Center(child: Text('לא נמצא בניין פעיל'));
+    }
+    return ResourceManagementPage(buildingId: buildingId);
   }
 
   Widget _buildFinancialTab() {
@@ -483,6 +509,9 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
   }
 
   Widget _buildSettingsTab() {
+    if (_building != null) {
+      return BuildingSettingsDashboard(buildingId: _building!.id);
+    }
     return const BuildingSettingsDashboard();
   }
 
@@ -590,5 +619,43 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
         ],
       ),
     );
+  }
+
+  IconData _activityIcon(String type) {
+    switch (type) {
+      case 'resident_added':
+        return Icons.person_add;
+      case 'vendor_added':
+        return Icons.build;
+      case 'maintenance_created':
+        return Icons.handyman;
+      default:
+        return Icons.info_outline;
+    }
+  }
+
+  Color _activityColor(String type) {
+    switch (type) {
+      case 'resident_added':
+        return Colors.green;
+      case 'vendor_added':
+        return Colors.indigo;
+      case 'maintenance_created':
+        return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _relativeTime(String isoDate) {
+    try {
+      final dt = DateTime.parse(isoDate);
+      final diff = DateTime.now().difference(dt);
+      if (diff.inMinutes < 60) return 'לפני ${diff.inMinutes} דק׳';
+      if (diff.inHours < 24) return 'לפני ${diff.inHours} שע׳';
+      return 'לפני ${diff.inDays} ימים';
+    } catch (_) {
+      return '';
+    }
   }
 }

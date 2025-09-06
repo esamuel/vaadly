@@ -61,7 +61,7 @@ Future<void> rollbackExample() async {
     await MultiTenantMigrationScript.initialize();
 
     // Replace with actual owner ID from migration output
-    const ownerId = 'your-owner-id-here';
+    // const ownerId = 'your-owner-id-here';
 
     // await MultiTenantMigrationScript.rollbackMigration(ownerId);
 

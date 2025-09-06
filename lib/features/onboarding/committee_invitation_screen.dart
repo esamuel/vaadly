@@ -4,8 +4,11 @@ import '../../core/models/building.dart';
 import '../../core/models/user.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/building_context_service.dart';
+import '../../core/config/app_links.dart';
 import '../../services/firebase_building_service.dart';
 import '../dashboards/committee_dashboard.dart';
+import '../../core/utils/phone_number_formatter.dart';
+import '../../core/widgets/auth_wrapper.dart';
 
 class CommitteeInvitationScreen extends StatefulWidget {
   final String buildingCode;
@@ -33,11 +36,37 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
   String? _errorMessage;
   bool _passwordVisible = false;
   bool _confirmPasswordVisible = false;
+  bool _isFormattingPhone = false;
 
   @override
   void initState() {
     super.initState();
     _loadBuilding();
+
+    // Ensure any pre-filled phone value is formatted on load
+    if (_phoneController.text.isNotEmpty) {
+      final formatted = PhoneNumberFormatter().formatEditUpdate(
+        const TextEditingValue(text: ''),
+        TextEditingValue(text: _phoneController.text),
+      );
+      _phoneController.value = formatted;
+    }
+
+    // Listen for programmatic changes (e.g., autofill) and format consistently
+    _phoneController.addListener(() {
+      if (_isFormattingPhone) return;
+      final current = _phoneController.text;
+      if (current.isEmpty) return;
+      final formatted = PhoneNumberFormatter().formatEditUpdate(
+        const TextEditingValue(text: ''),
+        TextEditingValue(text: current),
+      );
+      if (formatted.text != current) {
+        _isFormattingPhone = true;
+        _phoneController.value = formatted;
+        _isFormattingPhone = false;
+      }
+    });
   }
 
   @override
@@ -52,22 +81,18 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
 
   Future<void> _loadBuilding() async {
     try {
-      final buildings = await FirebaseBuildingService.getAllBuildings();
-      print('🏢 Available buildings: ${buildings.map((b) => '${b.name} (${b.buildingCode})').join(', ')}');
-      print('🔍 Looking for building code: ${widget.buildingCode}');
-      
-      _building = buildings.firstWhere(
-        (b) => b.buildingCode == widget.buildingCode,
-        orElse: () {
-          // If exact match not found, try to find by name or create a demo building
-          final demoBuilding = buildings.isNotEmpty ? buildings.first : null;
-          if (demoBuilding != null) {
-            print('✅ Using first available building as demo: ${demoBuilding.name}');
-            return demoBuilding;
-          }
-          throw Exception('Building not found');
-        },
-      );
+      print('🔍 Loading building by code: ${widget.buildingCode}');
+      final byCode = await FirebaseBuildingService.getBuildingByCode(widget.buildingCode);
+      if (byCode == null) {
+        throw Exception('Building not found');
+      }
+      _building = byCode;
+      // Set context for downstream flows
+      try {
+        await BuildingContextService.setBuildingContextByCode(byCode.buildingCode);
+      } catch (ctxError) {
+        print('⚠️ Failed to set building context: $ctxError');
+      }
     } catch (e) {
       print('❌ Error loading building: $e');
       setState(() {
@@ -89,42 +114,94 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
     });
 
     try {
-      // Create committee user account using AuthService
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
+      final name = _nameController.text.trim();
+      
+      print('🔐 Creating committee account for: $email');
+      
+      // Step 1: Create Firebase Auth account with email and password
+      // This automatically signs the user in and returns the Firebase User
+      final authUser = await AuthService.createFirebaseAuthAccount(email, password);
+      print('✅ Firebase Auth account created and signed in: ${authUser.email}');
+      
+      // Step 2: Create user document in Firestore
       final user = await AuthService.createUser(
-        email: _emailController.text.trim(),
-        name: _nameController.text.trim(),
+        email: email,
+        name: name,
         role: UserRole.buildingCommittee,
         buildingAccess: {_building!.id: 'admin'},
       );
+      print('✅ User document created in Firestore');
 
-      // Sign in the newly created user
-      await AuthService.signInWithEmail(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-      );
+      // Step 3: Complete the sign-in process by loading the user into AuthService
+      await AuthService.signInWithEmail(email, password);
+      print('✅ User signed in successfully');
 
-      // Set building context
+      // Step 4: Set building context
       await BuildingContextService.setBuildingContext(_building!.buildingCode);
+      print('✅ Building context set');
 
       if (mounted) {
-        // Show success and navigate to committee dashboard
+        // Show success message with better text
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('חשבון ועד הבית נוצר בהצלחה! ברוך הבא לוועד-לי'),
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'חשבון ועד הבית נוצר בהצלחה! מעביר למסך הראשי...',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
 
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => const CommitteeDashboard(),
-          ),
-        );
+        // Wait a moment for the success message to show, then navigate
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        // Navigate to main app (committee dashboard)
+        if (mounted) {
+          // Use pushReplacement to ensure clean navigation to main app
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (context) => const AuthWrapper(),
+            ),
+            (route) => false,
+          );
+        }
       }
     } catch (e) {
-      setState(() {
-        _errorMessage = 'שגיאה ביצירת החשבון: $e';
-      });
+      print('❌ Error creating committee account: $e');
+      
+      // Only show error if this is a real authentication failure
+      if (mounted) {
+        String errorMessage;
+        if (e.toString().contains('email-already-in-use')) {
+          errorMessage = 'כתובת האימייל כבר קיימת במערכת';
+        } else if (e.toString().contains('weak-password')) {
+          errorMessage = 'הסיסמה חלשה מדי. אנא בחר סיסמה חזקה יותר';
+        } else if (e.toString().contains('invalid-email')) {
+          errorMessage = 'כתובת אימייל לא תקינה';
+        } else if (e.toString().contains('network-request-failed')) {
+          errorMessage = 'בעיית רשת. אנא בדוק את החיבור לאינטרנט';
+        } else if (e.toString().contains('User with this email already exists')) {
+          errorMessage = 'משתמש עם כתובת אימייל זו כבר קיים';
+        } else {
+          // Only show generic error for unexpected issues
+          errorMessage = 'שגיאה ביצירת החשבון. אנא נסה שוב.';
+        }
+        
+        setState(() {
+          _errorMessage = errorMessage;
+        });
+      }
     } finally {
       setState(() {
         _creating = false;
@@ -200,10 +277,10 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.blue.withOpacity(0.3)),
                   ),
-                  child: const Column(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      const Row(
                         children: [
                           Icon(Icons.info_outline, color: Colors.blue),
                           SizedBox(width: 8),
@@ -213,18 +290,18 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
                           ),
                         ],
                       ),
-                      SizedBox(height: 12),
-                      Text('• בדוק שקישור ההזמנה נשלח נכון'),
-                      Text('• פנה לבעל האפליקציה לקבלת קישור חדש'),
-                      Text('• או נסה עם קוד בניין אחר'),
-                      SizedBox(height: 12),
-                      Text(
+                      const SizedBox(height: 12),
+                      const Text('• בדוק שקישור ההזמנה נשלח נכון'),
+                      const Text('• פנה לבעל האפליקציה לקבלת קישור חדש'),
+                      const Text('• או נסה עם קוד בניין אחר'),
+                      const SizedBox(height: 12),
+                      const Text(
                         'דוגמה לקישור נכון:',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        'localhost:3000/#/manage/braeli-5',
-                        style: TextStyle(fontFamily: 'monospace', fontSize: 12),
+                        AppLinks.managePortal('example-code', canonical: true),
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                       ),
                     ],
                   ),
@@ -421,12 +498,14 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
                           keyboardType: TextInputType.phone,
                           decoration: const InputDecoration(
                             labelText: 'מספר טלפון *',
-                            hintText: '050-1234567',
+                            hintText: '(050)1234567',
                             prefixIcon: Icon(Icons.phone),
                             border: OutlineInputBorder(),
                           ),
+                          textDirection: TextDirection.ltr,
                           inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp(r'[0-9\-]')),
+                            PhoneNumberFormatter(),
+                            LengthLimitingTextInputFormatter(13),
                           ],
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {

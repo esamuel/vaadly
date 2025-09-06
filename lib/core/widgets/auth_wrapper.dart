@@ -6,7 +6,7 @@ import '../models/user.dart';
 import '../../features/auth/auth_screen.dart';
 import '../../features/auth/building_auth_screen.dart';
 import '../../features/onboarding/committee_invitation_screen.dart';
-import '../../features/dashboards/app_owner_dashboard.dart';
+import '../../features/dashboards/app_owner_dashboard_simple.dart';
 import '../../features/dashboards/committee_dashboard.dart';
 import '../../features/dashboards/resident_dashboard.dart';
 
@@ -43,8 +43,9 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Future<void> _initialize() async {
     try {
       await AuthService.initialize();
-      await AuthService.initializeDemoUsers();
+      // Ensure a demo building exists before creating demo users
       await BuildingContextService.initializeDemoBuildingContext();
+      await AuthService.initializeDemoUsers();
       
       // If building code is provided, set building context
       if (widget.buildingCode != null) {
@@ -95,14 +96,13 @@ class _AuthWrapperState extends State<AuthWrapper> {
     final isLoggedInNewSystem = MultiTenantAuthService.isLoggedIn;
     
     if (!isLoggedInOldSystem && !isLoggedInNewSystem) {
-      // If building code is provided, check if this is a committee invitation
+      // If building code is provided, route based on portal type
       if (widget.buildingCode != null) {
-        // Check if there's already a committee for this building
-        // For now, we'll show the invitation screen - this should be improved
-        // to check if the building already has a committee setup
-        if (widget.isManagementPortal || _shouldShowCommitteeInvitation()) {
+        if (widget.isManagementPortal) {
+          // Management portal: committee invitation / setup
           return CommitteeInvitationScreen(buildingCode: widget.buildingCode!);
         }
+        // Resident portal: building auth (sign-in)
         return BuildingAuthScreen(buildingCode: widget.buildingCode!);
       }
       

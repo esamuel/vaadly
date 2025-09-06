@@ -109,6 +109,14 @@ app_owners/{ownerId}/           # App owner data
 - **Data Isolation**: Complete separation between different buildings
 - **Role-based Permissions**: Hierarchical access control
 
+## 📚 Firestore Spec (Windsurf-ready)
+
+For the canonical Firestore collections, document schemas, roles/claims, security rules, Cloud Function, and required indexes, see:
+
+- `docs/VAADLY_FIRESTORE_SPEC.md`
+
+This spec is the source of truth for data access, auth, and backend enforcement.
+
 ## 🔄 **Workflow**
 
 ### **App Owner Workflow**

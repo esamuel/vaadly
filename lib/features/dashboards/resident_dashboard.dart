@@ -203,6 +203,10 @@ class _ResidentDashboardState extends State<ResidentDashboard> {
     final buildingId = BuildingContextService.buildingId ?? user.accessibleBuildings.first;
     final unitId = user.getResidentUnit(buildingId) ?? 'Unknown';
     
+    final ctx = BuildingContextService.currentBuilding;
+    final buildingName = ctx?.buildingName ?? 'הבניין שלי';
+    final buildingAddress = ctx?.address ?? '';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -236,16 +240,17 @@ class _ResidentDashboardState extends State<ResidentDashboard> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Unit $unitId - מגדל השלום',
+                          'יחידה $unitId • $buildingName',
                           style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 16),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          'בניין מגדל שלום',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey[600],
+                        if (buildingAddress.isNotEmpty)
+                          Text(
+                            buildingAddress,
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.grey[600],
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -356,6 +361,8 @@ class _ResidentDashboardState extends State<ResidentDashboard> {
         .doc(buildingId)
         .collection('messages');
 
+    final inputController = TextEditingController();
+
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -368,56 +375,97 @@ class _ResidentDashboardState extends State<ResidentDashboard> {
           const SizedBox(height: 16),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: messagesRef.orderBy('createdAt', descending: true).limit(50).snapshots(),
+              stream: messagesRef.orderBy('createdAt', descending: true).limit(100).snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return Center(child: Text('שגיאה בטעינת הודעות'));
+                  return const Center(child: Text('שגיאה בטעינת הודעות'));
                 }
                 final docs = snapshot.data?.docs ?? [];
-                if (docs.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.chat_bubble_outline, size: 40, color: Colors.grey),
-                        SizedBox(height: 8),
-                        Text('אין הודעות'),
-                      ],
-                    ),
-                  );
-                }
                 return Card(
-                  child: ListView.separated(
-                    itemCount: docs.length,
-                    separatorBuilder: (_, __) => const Divider(height: 0),
-                    itemBuilder: (context, index) {
-                      final data = docs[index].data() as Map<String, dynamic>? ?? {};
-                      final title = (data['title'] ?? data['subject'] ?? 'הודעה') as String;
-                      final preview = (data['body'] ?? data['message'] ?? '') as String;
-                      final ts = data['createdAt'];
-                      String time = '';
-                      if (ts is Timestamp) {
-                        final dt = ts.toDate();
-                        time = '${dt.year}-${dt.month.toString().padLeft(2,'0')}-${dt.day.toString().padLeft(2,'0')}';
-                      }
-                      final recipients = data['recipients'];
-                      bool unread = false;
-                      if (recipients is Map) {
-                        final entry = recipients[user.id];
-                        if (entry is Map) {
-                          unread = !(entry['read'] == true);
-                        }
-                      }
-                      return _buildMessageItem(title, preview, time, unread);
-                    },
-                  ),
+                  child: docs.isEmpty
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.chat_bubble_outline, size: 40, color: Colors.grey),
+                                SizedBox(height: 8),
+                                Text('אין הודעות'),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          reverse: true,
+                          itemCount: docs.length,
+                          separatorBuilder: (_, __) => const Divider(height: 0),
+                          itemBuilder: (context, index) {
+                            final data = docs[index].data() as Map<String, dynamic>? ?? {};
+                            final title = (data['title'] ?? data['subject'] ?? 'הודעה') as String;
+                            final preview = (data['body'] ?? data['message'] ?? '') as String;
+                            final ts = data['createdAt'];
+                            String time = '';
+                            if (ts is Timestamp) {
+                              final dt = ts.toDate();
+                              time = '${dt.year}-${dt.month.toString().padLeft(2,'0')}-${dt.day.toString().padLeft(2,'0')}';
+                            }
+                            final recipients = data['recipients'];
+                            bool unread = false;
+                            if (recipients is Map) {
+                              final entry = recipients[user.id];
+                              if (entry is Map) {
+                                unread = !(entry['read'] == true);
+                              }
+                            }
+                            return _buildMessageItem(title, preview, time, unread);
+                          },
+                        ),
                 );
               },
             ),
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: inputController,
+                  decoration: const InputDecoration(
+                    hintText: 'כתוב הודעה...',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.message),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final text = inputController.text.trim();
+                  if (text.isEmpty) return;
+                  try {
+                    await messagesRef.add({
+                      'title': 'הודעה',
+                      'message': text,
+                      'senderId': user.id,
+                      'senderName': user.name,
+                      'createdAt': FieldValue.serverTimestamp(),
+                    });
+                    inputController.clear();
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('שגיאה בשליחת הודעה: $e')),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.send),
+                label: const Text('שלח'),
+              )
+            ],
+          )
         ],
       ),
     );
@@ -449,14 +497,14 @@ class _ResidentDashboardState extends State<ResidentDashboard> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 if (snapshot.hasError) {
-                  return Center(child: Text('שגיאה בטעינת מסמכים'));
+                  return const Center(child: Text('שגיאה בטעינת מסמכים'));
                 }
                 final docs = snapshot.data?.docs ?? [];
                 if (docs.isEmpty) {
-                  return Center(
+                  return const Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
-                      children: const [
+                      children: [
                         Icon(Icons.folder_open, size: 40, color: Colors.grey),
                         SizedBox(height: 8),
                         Text('אין מסמכים'),
@@ -486,84 +534,136 @@ class _ResidentDashboardState extends State<ResidentDashboard> {
   }
 
   Widget _buildPaymentsTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Balance overview
-          Card(
-            color: Colors.red.withOpacity(0.1),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.account_balance_wallet, color: Colors.white, size: 24),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Current Balance',
-                          style: TextStyle(fontSize: 14, color: Colors.grey),
+    final user = AuthService.currentUser!;
+    final buildingId = BuildingContextService.buildingId ?? user.accessibleBuildings.first;
+    final unitId = user.getResidentUnit(buildingId);
+
+    final invoicesQuery = FirebaseFirestore.instance
+        .collection('buildings')
+        .doc(buildingId)
+        .collection('invoices')
+        .where(unitId != null ? 'unitId' : 'residentId', isEqualTo: unitId ?? user.id)
+        .orderBy('issueDate', descending: true);
+
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: invoicesQuery.withConverter<Map<String, dynamic>>(
+        fromFirestore: (snap, _) => snap.data() ?? {},
+        toFirestore: (data, _) => data,
+      ).snapshots(),
+      builder: (context, snapshot) {
+        final docs = snapshot.data?.docs ?? [];
+
+        // Compute basic balance
+        double total = 0;
+        double paid = 0;
+        for (final d in docs) {
+          final data = d.data();
+          final amount = (data['total'] ?? 0).toDouble();
+          final status = (data['status'] ?? 'pending').toString();
+          total += amount;
+          if (status.toLowerCase() == 'paid') paid += amount;
+        }
+        final outstanding = (total - paid);
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Balance overview
+              Card(
+                color: outstanding > 0 ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: outstanding > 0 ? Colors.red : Colors.green,
+                          shape: BoxShape.circle,
                         ),
-                        const Text(
-                          '₪-450',
-                          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.red),
+                        child: const Icon(Icons.account_balance_wallet, color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Current Balance',
+                              style: TextStyle(fontSize: 14, color: Colors.grey),
+                            ),
+                            Text(
+                              '₪${outstanding.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: outstanding > 0 ? Colors.red : Colors.green,
+                              ),
+                            ),
+                            Text(
+                              outstanding > 0 ? 'Outstanding payment due' : 'All paid',
+                              style: TextStyle(fontSize: 12, color: (outstanding > 0 ? Colors.red : Colors.green).shade700),
+                            ),
+                          ],
                         ),
-                        Text(
-                          'Outstanding payment due',
-                          style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+                      ),
+                      if (outstanding > 0)
+                        ElevatedButton(
+                          onPressed: () {
+                            // TODO: Integrate payment flow
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Pay Now'),
                         ),
-                      ],
-                    ),
+                    ],
                   ),
-                  ElevatedButton(
-                    onPressed: () {
-                      // Pay now functionality
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Pay Now'),
-                  ),
-                ],
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-          Text(
-            'Payment History',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
+              Text(
+                'Payment History',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
 
-          // Payment history
-          Card(
-            child: Column(
-              children: [
-                _buildPaymentItem('Monthly Fee', '₪1,200', 'Nov 2025', 'Pending', Colors.orange),
-                const Divider(),
-                _buildPaymentItem('Monthly Fee', '₪1,200', 'Oct 2025', 'Paid', Colors.green),
-                const Divider(),
-                _buildPaymentItem('Monthly Fee', '₪1,200', 'Sep 2025', 'Paid', Colors.green),
-                const Divider(),
-                _buildPaymentItem('Special Assessment', '₪500', 'Aug 2025', 'Paid', Colors.green),
-              ],
-            ),
+              // Payment history
+              Card(
+                child: docs.isEmpty
+                    ? const Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Center(child: Text('לא נמצאו חיובים לחשבון')),
+                      )
+                    : ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        separatorBuilder: (_, __) => const Divider(height: 0),
+                        itemCount: docs.length,
+                        itemBuilder: (context, index) {
+                          final data = docs[index].data();
+                          final desc = (data['description'] ?? data['type'] ?? 'Invoice').toString();
+                          final amount = (data['total'] ?? 0).toDouble();
+                          final status = (data['status'] ?? 'pending').toString();
+                          final color = status.toLowerCase() == 'paid' ? Colors.green : (status.toLowerCase() == 'pending' ? Colors.orange : Colors.grey);
+                          final issueDate = data['issueDate'];
+                          String dateLabel = '';
+                          if (issueDate is Timestamp) {
+                            final dt = issueDate.toDate();
+                            dateLabel = '${dt.year}-${dt.month.toString().padLeft(2, '0')}';
+                          }
+                          return _buildPaymentItem(desc, '₪${amount.toStringAsFixed(0)}', dateLabel, status, color);
+                        },
+                      ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -635,6 +735,13 @@ class _ResidentDashboardState extends State<ResidentDashboard> {
   }
 
   Widget _buildBuildingInfoTab() {
+    final ctx = BuildingContextService.currentBuilding;
+    final buildingName = ctx?.buildingName ?? 'הבניין שלי';
+    final buildingAddress = ctx?.address ?? '—';
+    final managerName = ctx?.managerName.isNotEmpty == true ? ctx!.managerName : '—';
+    final managerPhone = ctx?.managerPhone.isNotEmpty == true ? ctx!.managerPhone : '—';
+    final managerEmail = ctx?.managerEmail.isNotEmpty == true ? ctx!.managerEmail : '—';
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -652,7 +759,7 @@ class _ResidentDashboardState extends State<ResidentDashboard> {
                       const Icon(Icons.business, color: Colors.blue, size: 32),
                       const SizedBox(width: 12),
                       Text(
-                        'מגדל השלום',
+                        buildingName,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: Colors.blue,
@@ -661,11 +768,10 @@ class _ResidentDashboardState extends State<ResidentDashboard> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildInfoRow('Address', 'רחוב הרצל 123, תל אביב'),
-                  _buildInfoRow('Building Manager', 'יוסי כהן'),
-                  _buildInfoRow('Phone', '050-1234567'),
-                  _buildInfoRow('Email', 'committee@shalom-tower.co.il'),
-                  _buildInfoRow('Emergency', '100'),
+                  _buildInfoRow('Address', buildingAddress),
+                  _buildInfoRow('Building Manager', managerName),
+                  _buildInfoRow('Phone', managerPhone),
+                  _buildInfoRow('Email', managerEmail),
                 ],
               ),
             ),
@@ -855,8 +961,9 @@ class _ResidentDashboardState extends State<ResidentDashboard> {
 
   void _showUserProfile() {
     final user = AuthService.currentUser!;
-    final buildingId = user.accessibleBuildings.first;
+    final buildingId = BuildingContextService.buildingId ?? user.accessibleBuildings.first;
     final unitId = user.getResidentUnit(buildingId) ?? 'Unknown';
+    final bName = BuildingContextService.currentBuilding?.buildingName ?? '—';
     
     showDialog(
       context: context,
@@ -870,7 +977,7 @@ class _ResidentDashboardState extends State<ResidentDashboard> {
             Text('Email: ${user.email}'),
             const Text('Role: Resident'),
             Text('Unit: $unitId'),
-            const Text('Building: Shalom Tower'),
+            Text('Building: $bName'),
             const Text('Status: Active'),
             Text('Moved in: ${user.createdAt.toLocal().toString().split(' ')[0]}'),
           ],

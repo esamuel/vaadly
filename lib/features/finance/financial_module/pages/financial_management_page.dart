@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../core/services/financial_service.dart';
-import '../../../core/services/building_service.dart';
-import '../../../core/models/invoice.dart';
-import '../../../core/models/expense.dart';
-import '../../../core/models/building.dart';
+import 'package:vaadly/core/services/financial_service.dart';
+import 'package:vaadly/services/firebase_building_service.dart';
+import 'package:vaadly/core/models/invoice.dart';
+import 'package:vaadly/core/models/expense.dart';
+import 'package:vaadly/core/models/building.dart';
 
 class FinancialManagementPage extends StatefulWidget {
   const FinancialManagementPage({super.key});
@@ -20,6 +20,7 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
   List<Expense> _expenses = [];
   Map<String, dynamic> _buildingStats = {};
   Map<String, dynamic> _overallStats = {};
+  bool _loading = false;
 
   @override
   void initState() {
@@ -27,18 +28,12 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
     _loadData();
   }
 
-  void _loadData() {
-    setState(() {
-      // Initialize sample data if needed
-      if (BuildingService.getAllBuildings().isEmpty) {
-        print('🔧 Initializing sample data...');
-        BuildingService.initializeSampleData();
-        FinancialService.initializeSampleData();
-        print('✅ Sample data initialized');
-      }
-
-      _buildings = BuildingService.getAllBuildings();
-      print('🏢 Buildings loaded: ${_buildings.length}');
+  Future<void> _loadData() async {
+    setState(() => _loading = true);
+    try {
+      // Load buildings from Firebase
+      _buildings = await FirebaseBuildingService.getAllBuildings();
+      print('🏢 Buildings loaded from Firebase: ${_buildings.length}');
 
       // Test FinancialService directly
       final allInvoices = FinancialService.getAllInvoices();
@@ -52,7 +47,11 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
             '🏢 Selected building: ${_buildings.first.name} (ID: $_selectedBuildingId)');
         _loadFinancialData();
       }
-    });
+    } catch (e) {
+      print('❌ Error loading buildings: $e');
+    } finally {
+      setState(() => _loading = false);
+    }
   }
 
   void _loadFinancialData() {
@@ -82,6 +81,10 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
       length: 3,
       child: Scaffold(
         appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
           title: const Text('💰 ניהול פיננסי'),
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,
           bottom: const TabBar(

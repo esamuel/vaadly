@@ -1,37 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/config/app_links.dart';
 import '../../services/firebase_building_service.dart';
 import '../../core/models/building.dart';
+import '../../core/utils/phone_number_formatter.dart';
 
-class PhoneNumberFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final text = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
-    
-    if (text.length <= 3) {
-      return newValue.copyWith(
-        text: '($text',
-        selection: TextSelection.collapsed(offset: text.length + 1),
-      );
-    } else if (text.length <= 10) {
-      final formatted = '(${text.substring(0, 3)})${text.substring(3)}';
-      return newValue.copyWith(
-        text: formatted,
-        selection: TextSelection.collapsed(offset: formatted.length),
-      );
-    } else {
-      final truncated = text.substring(0, 10);
-      final formatted = '(${truncated.substring(0, 3)})${truncated.substring(3)}';
-      return newValue.copyWith(
-        text: formatted,
-        selection: TextSelection.collapsed(offset: formatted.length),
-      );
-    }
-  }
-}
+ 
 
 class AddBuildingScreen extends StatefulWidget {
   const AddBuildingScreen({super.key});
@@ -47,6 +21,8 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
   final _addressController = TextEditingController();
   final _unitsController = TextEditingController();
   final _floorsController = TextEditingController();
+  final _parkingController = TextEditingController();
+  final _storagesController = TextEditingController();
   final _managerNameController = TextEditingController();
   final _managerPhoneController = TextEditingController();
   final _managerEmailController = TextEditingController();
@@ -66,23 +42,35 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
     _managerPhoneController.dispose();
     _managerEmailController.dispose();
     _notesController.dispose();
+    _parkingController.dispose();
+    _storagesController.dispose();
     super.dispose();
   }
 
   void _generateBuildingCode() {
     final name = _buildingNameController.text.trim();
     if (name.isNotEmpty) {
-      // Simple code generation - replace spaces with dashes and make lowercase
-      final code = name
-          .replaceAll(' ', '-')
-          .replaceAll('ה', '')
-          .replaceAll('ב', '')
-          .replaceAll('ל', '')
+      // Generate a robust code:
+      // 1) Create a slug from any ascii letters/digits in the name
+      var base = name
           .toLowerCase()
-          .replaceAll(RegExp(r'[^\w\-]'), '');
-      
+          .replaceAll(RegExp(r'\s+'), '-')
+          .replaceAll(RegExp(r'[^a-z0-9\-]'), '');
+
+      // 2) Remove leading/trailing dashes
+      base = base
+          .replaceAll(RegExp(r'^-+'), '')
+          .replaceAll(RegExp(r'-+$'), '');
+
+      // 3) If base is empty, too short, or numeric-only, fall back to a generated code
+      final isNumericOnly = RegExp(r'^[0-9\-]+$').hasMatch(base);
+      if (base.length < 3 || isNumericOnly) {
+        final ts = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
+        base = 'b-${ts.substring(ts.length - 5)}';
+      }
+
       setState(() {
-        _buildingCodeController.text = code;
+        _buildingCodeController.text = base;
       });
     }
   }
@@ -107,8 +95,8 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
         country: 'ישראל',
         totalFloors: int.parse(_floorsController.text.trim()),
         totalUnits: int.parse(_unitsController.text.trim()),
-        parkingSpaces: 0, // Default
-        storageUnits: 0, // Default
+        parkingSpaces: int.tryParse(_parkingController.text.trim()) ?? 0,
+        storageUnits: int.tryParse(_storagesController.text.trim()) ?? 0,
         buildingArea: 0.0, // Default
         yearBuilt: DateTime.now().year,
         buildingType: 'residential',
@@ -125,7 +113,11 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
       // Save the building using Firebase
       final savedBuilding = await FirebaseBuildingService.addBuilding(building);
       
-      final buildingLink = 'http://localhost:3000/#/manage/${savedBuilding.buildingCode}';
+      // Build canonical manage portal link
+      final buildingLink = AppLinks.managePortal(
+        savedBuilding.buildingCode,
+        canonical: true,
+      );
       
       if (mounted) {
         // Show success dialog with building link
@@ -162,7 +154,7 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(
+                        child: SelectableText(
                           buildingLink,
                           style: const TextStyle(
                             fontFamily: 'monospace',
@@ -171,11 +163,21 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
                         ),
                       ),
                       IconButton(
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: buildingLink));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('קישור הועתק ללוח הגזירים')),
-                          );
+                        onPressed: () async {
+                          try {
+                            await Clipboard.setData(ClipboardData(text: buildingLink));
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('קישור הועתק ללוח הגזירים')),
+                              );
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('שגיאה בהעתקת קישור: $e')),
+                              );
+                            }
+                          }
                         },
                         icon: const Icon(Icons.copy, size: 16),
                         tooltip: 'העתק קישור',
@@ -308,6 +310,12 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
                   if (!RegExp(r'^[a-z0-9\-]+$').hasMatch(value)) {
                     return 'רק אותיות באנגלית, מספרים ומקף';
                   }
+                  if (value.length < 3) {
+                    return 'קוד חייב להכיל לפחות 3 תווים';
+                  }
+                  if (RegExp(r'^[0-9\-]+$').hasMatch(value)) {
+                    return 'קוד לא יכול להיות מספרי בלבד';
+                  }
                   return null;
                 },
               ),
@@ -355,6 +363,52 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
                         final units = int.tryParse(value);
                         if (units == null || units <= 0) {
                           return 'מספר לא תקין';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Parking and Storage (optional)
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _parkingController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'מספר חניות',
+                        hintText: 'לדוגמה: 20',
+                        prefixIcon: Icon(Icons.local_parking),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value != null && value.trim().isNotEmpty) {
+                          final n = int.tryParse(value);
+                          if (n == null || n < 0) return 'מספר לא תקין';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _storagesController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        labelText: 'מספר מחסנים',
+                        hintText: 'לדוגמה: 15',
+                        prefixIcon: Icon(Icons.inventory),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value != null && value.trim().isNotEmpty) {
+                          final n = int.tryParse(value);
+                          if (n == null || n < 0) return 'מספר לא תקין';
                         }
                         return null;
                       },
@@ -419,6 +473,7 @@ class _AddBuildingScreenState extends State<AddBuildingScreen> {
                         prefixIcon: Icon(Icons.phone),
                         border: OutlineInputBorder(),
                       ),
+                      textDirection: TextDirection.ltr,
                       inputFormatters: [
                         PhoneNumberFormatter(),
                         LengthLimitingTextInputFormatter(13), // (123)4567890

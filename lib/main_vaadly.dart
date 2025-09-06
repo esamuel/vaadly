@@ -3,7 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'core/models/building.dart';
-import 'features/building/widgets/add_building_form.dart';
+import 'features/buildings/building_module/widgets/add_building_form.dart';
 
 // Simplified Firebase Service without auth dependencies
 class SimpleFirebaseService {

@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
+import 'building_context_service.dart';
 import '../models/user.dart';
 
 class AuthService {
@@ -16,6 +18,9 @@ class AuthService {
   static Future<void> initialize() async {
     try {
       await Firebase.initializeApp();
+      // Disable Auth emulator for production Firebase use
+      // Note: Emulator was disabled to use real Firebase project
+      print('ℹ️ Using production Firebase (emulator disabled)');
       print('✅ AuthService initialized');
     } catch (e) {
       print('❌ AuthService initialization failed: $e');
@@ -34,7 +39,7 @@ class AuthService {
         throw Exception('Password must be at least 6 characters');
       }
 
-      // Query user by email
+      // Query user by email (app-level profile)
       final userQuery = await _firestore
           .collection('users')
           .where('email', isEqualTo: email.toLowerCase().trim())
@@ -47,7 +52,15 @@ class AuthService {
       }
 
       final userDoc = userQuery.docs.first;
+      print('🔍 Raw user data from Firestore: ${userDoc.data()}');
       final user = VaadlyUser.fromFirestore(userDoc);
+      print('🔍 Parsed user role: ${user.role}');
+
+      // Ensure Firebase Auth session (for Firestore security rules)
+      final authUser = await _ensureAuthSession(email, password);
+
+      // Ensure a corresponding users/<uid> doc exists for rules getUserData()
+      await _ensureUserDocForUid(uid: authUser.uid, userFromProfile: user);
 
       // Update last login
       await _firestore.collection('users').doc(user.id).update({
@@ -67,6 +80,9 @@ class AuthService {
 
   // Sign out
   static Future<void> signOut() async {
+    try {
+      await fb_auth.FirebaseAuth.instance.signOut();
+    } catch (_) {}
     _currentUser = null;
     _currentUserEmail = null;
     print('✅ User signed out');
@@ -114,6 +130,41 @@ class AuthService {
       return user;
     } catch (e) {
       print('❌ Failed to create user: $e');
+      rethrow;
+    }
+  }
+
+  // Create Firebase Auth account with email and password
+  static Future<fb_auth.User> createFirebaseAuthAccount(String email, String password) async {
+    try {
+      print('🔐 Creating Firebase Auth account for: $email');
+      
+      final auth = fb_auth.FirebaseAuth.instance;
+      final credential = await auth.createUserWithEmailAndPassword(
+        email: email.toLowerCase().trim(),
+        password: password,
+      );
+      
+      print('✅ Firebase Auth account created successfully');
+      return credential.user!;
+    } catch (e) {
+      print('❌ Failed to create Firebase Auth account: $e');
+      
+      // Rethrow with more specific error handling
+      if (e is fb_auth.FirebaseAuthException) {
+        switch (e.code) {
+          case 'email-already-in-use':
+            throw Exception('האימייל כבר קיים במערכת');
+          case 'invalid-email':
+            throw Exception('כתובת אימייל לא תקינה');
+          case 'weak-password':
+            throw Exception('סיסמה חלשה מדי');
+          case 'operation-not-allowed':
+            throw Exception('פעולת יצירת משתמש לא מופעלת');
+          default:
+            throw Exception('שגיאה ביצירת חשבון Firebase: ${e.message}');
+        }
+      }
       rethrow;
     }
   }
@@ -242,60 +293,200 @@ class AuthService {
   static Future<void> initializeDemoUsers() async {
     try {
       print('🎭 Initializing demo users...');
+      
+      // Always attempt to fix timestamp issues on existing users
+      await _fixTimestampIssues();
 
-      // Check if demo users already exist
-      final existingUsers = await _firestore.collection('users').limit(1).get();
-      if (existingUsers.docs.isNotEmpty) {
-        print('✅ Demo users already exist');
-        // Fix any existing timestamp issues
-        await _fixTimestampIssues();
-        return;
-      }
+      // Locate demo building id (created earlier by BuildingContextService)
+      String? demoBuildingId;
+      try {
+        final ctx = await BuildingContextService.getBuildingByCode('shalom1234');
+        demoBuildingId = ctx?.buildingId;
+      } catch (_) {}
 
-      // Create demo app owner
-      final appOwner = UserFactory.createAppOwner(
-        id: 'demo_owner',
+      // Ensure core demo users exist
+      await _ensureUserByEmail(
         email: 'owner@vaadly.com',
-        name: 'Samuel - App Owner',
+        create: () => UserFactory.createAppOwner(
+          id: 'demo_owner',
+          email: 'owner@vaadly.com',
+          name: 'Samuel - App Owner',
+        ),
       );
 
-      // Create demo building committee
-      final committee = UserFactory.createBuildingCommittee(
-        id: 'demo_committee',
+      await _ensureUserByEmail(
         email: 'committee@shalom-tower.co.il',
-        name: 'יוסי כהן - Building Manager',
-        buildingId: 'demo_building_1',
+        create: () => UserFactory.createBuildingCommittee(
+          id: 'demo_committee',
+          email: 'committee@shalom-tower.co.il',
+          name: 'יוסי כהן - Building Manager',
+          buildingId: demoBuildingId ?? 'pending_building',
+        ),
       );
 
-      // Create demo resident
-      final resident = UserFactory.createResident(
-        id: 'demo_resident',
+      await _ensureUserByEmail(
         email: 'resident@example.com',
-        name: 'משה לוי - Resident',
-        buildingId: 'demo_building_1',
-        unitId: 'unit_101',
+        create: () => UserFactory.createResident(
+          id: 'demo_resident',
+          email: 'resident@example.com',
+          name: 'משה לוי - Resident',
+          buildingId: demoBuildingId ?? 'pending_building',
+          unitId: 'unit_101',
+        ),
       );
 
-      // Save users to Firestore
-      await _firestore
-          .collection('users')
-          .doc(appOwner.id)
-          .set(appOwner.toMap());
-      await _firestore
-          .collection('users')
-          .doc(committee.id)
-          .set(committee.toMap());
-      await _firestore
-          .collection('users')
-          .doc(resident.id)
-          .set(resident.toMap());
+      // Ensure owner account for Samuel exists
+      await _ensureUserByEmail(
+        email: 'samuel.eskenasy@gmail.com',
+        create: () => UserFactory.createAppOwner(
+          id: 'owner_samuel',
+          email: 'samuel.eskenasy@gmail.com',
+          name: 'Samuel Eskenasy',
+        ),
+      );
 
-      print('✅ Demo users created:');
+      print('✅ Demo users verified/created');
       print('   App Owner: owner@vaadly.com (password: 123456)');
       print('   Committee: committee@shalom-tower.co.il (password: 123456)');
       print('   Resident: resident@example.com (password: 123456)');
     } catch (e) {
       print('❌ Failed to initialize demo users: $e');
+    }
+  }
+
+  // Helper: ensure a user with email exists; create via factory when missing
+  static Future<void> _ensureUserByEmail({
+    required String email,
+    required VaadlyUser Function() create,
+  }) async {
+    final existing = await _firestore
+        .collection('users')
+        .where('email', isEqualTo: email.toLowerCase().trim())
+        .limit(1)
+        .get();
+    if (existing.docs.isNotEmpty) {
+      // Ensure active and correct role
+      final doc = existing.docs.first;
+      final data = doc.data();
+      final expectedUser = create(); // Get the expected user configuration
+      final updates = <String, dynamic>{};
+      
+      if (data['isActive'] != true) {
+        updates['isActive'] = true;
+      }
+      
+      // Check if role needs to be corrected
+      final currentRoleRaw = (data['role'] ?? '').toString();
+      final currentRoleShort = currentRoleRaw.contains('.') ? currentRoleRaw.split('.').last : currentRoleRaw;
+      final expectedRoleShort = expectedUser.role.toString().split('.').last;
+      if (currentRoleShort != expectedRoleShort) {
+        updates['role'] = expectedRoleShort;
+        print('🔧 Correcting role for ${data['email']}: $currentRoleShort → $expectedRoleShort');
+      }
+      
+      // Apply updates if needed
+      if (updates.isNotEmpty) {
+        await _firestore.collection('users').doc(doc.id).update(updates);
+      }
+      
+      // Also ensure that if current auth matches this email, we have a uid-matching doc
+      try {
+        final current = fb_auth.FirebaseAuth.instance.currentUser;
+        if (current != null && (current.email ?? '').toLowerCase() == email.toLowerCase()) {
+          await _ensureUserDocForUid(uid: current.uid, userFromProfile: expectedUser);
+        }
+      } catch (_) {}
+      // Continue to ensure Firebase Auth exists
+    }
+    
+    VaadlyUser user;
+    if (existing.docs.isNotEmpty) {
+      // Re-fetch the document after potential updates
+      final updatedDoc = await _firestore.collection('users').doc(existing.docs.first.id).get();
+      user = VaadlyUser.fromFirestore(updatedDoc);
+    } else {
+      user = create();
+      // Create profile doc with preferred ID
+      await _firestore.collection('users').doc(user.id).set(user.toMap());
+      print('👤 Created Firestore user: $email (${user.role})');
+    }
+    
+    // Always ensure Firebase Auth account exists for demo users
+    try {
+      final pwd = email == 'owner@vaadly.com' ? '123456' : (email == 'samuel.eskenasy@gmail.com' ? 'vaadly123' : '123456');
+      print('🔐 Creating/ensuring Firebase Auth for: $email');
+      final cred = await _ensureAuthSession(email, pwd);
+      await _ensureUserDocForUid(uid: cred.uid, userFromProfile: user);
+      print('✅ Firebase Auth account created/verified: $email');
+    } catch (e) {
+      print('⚠️ Failed to create Firebase Auth for $email: $e');
+      // Continue anyway - at least Firestore doc exists
+    }
+  }
+
+  // Create or sign in to auth user and return the fb user
+  static Future<fb_auth.User> _ensureAuthSession(String email, String password) async {
+    final auth = fb_auth.FirebaseAuth.instance;
+    final normalizedEmail = email.toLowerCase().trim();
+    try {
+      // Prefer sign-in first to avoid unnecessary sign-up requests (400s from signUp endpoint)
+      final cred = await auth.signInWithEmailAndPassword(
+        email: normalizedEmail,
+        password: password,
+      );
+      print('✅ Signed in existing Firebase Auth user: $normalizedEmail');
+      return cred.user!;
+    } on fb_auth.FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found') {
+        // Create the user if they don't exist
+        try {
+          final cred = await auth.createUserWithEmailAndPassword(
+            email: normalizedEmail,
+            password: password,
+          );
+          print('✅ Created new Firebase Auth user: $normalizedEmail');
+          return cred.user!;
+        } catch (createError) {
+          print('❌ Failed to create user $normalizedEmail: $createError');
+          rethrow;
+        }
+      } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        // Do not attempt sign-up when password is wrong/invalid
+        print('❌ Wrong/invalid password for $normalizedEmail');
+        rethrow;
+      } else if (e.code == 'too-many-requests') {
+        print('⚠️ Too many requests when signing in $normalizedEmail');
+        rethrow;
+      }
+      // Fallback
+      print('❌ Firebase Auth error for $normalizedEmail: ${e.code} - ${e.message}');
+      rethrow;
+    }
+  }
+
+  // Ensure there is a users/<uid> doc with at least role/email/name matching the profile
+  static Future<void> _ensureUserDocForUid({required String uid, required VaadlyUser userFromProfile}) async {
+    final doc = await _firestore.collection('users').doc(uid).get();
+    final base = userFromProfile.toMap();
+    if (!doc.exists) {
+      await _firestore.collection('users').doc(uid).set({
+        ...base,
+        'email': userFromProfile.email.toLowerCase().trim(),
+        'role': userFromProfile.role.toString().split('.').last,
+        'isActive': true,
+        'createdAt': Timestamp.fromDate(DateTime.now()),
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+      print('👤 Created users/$uid for security rules');
+    } else {
+      await _firestore.collection('users').doc(uid).update({
+        'role': userFromProfile.role.toString().split('.').last,
+        'name': userFromProfile.name,
+        'email': userFromProfile.email.toLowerCase().trim(),
+        'isActive': true,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+      print('🔄 Updated users/$uid for security rules');
     }
   }
 

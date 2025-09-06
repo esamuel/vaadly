@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../core/models/building.dart';
-import '../../../core/models/unit.dart';
-import '../../../core/services/firebase_service.dart';
+import '../../../../core/models/building.dart';
+import '../../../../core/models/unit.dart';
+import '../../../../core/services/firebase_service.dart';
 import '../widgets/add_building_form.dart';
 
 class BuildingManagementPage extends StatefulWidget {
@@ -421,6 +421,10 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text('🏢 ניהול בניין'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         centerTitle: true,

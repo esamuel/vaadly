@@ -99,6 +99,7 @@ class _FinancialDashboardState extends State<FinancialDashboard> {
       ),
       floatingActionButton: _selectedTabIndex == 0
           ? FloatingActionButton.extended(
+              heroTag: "finance_invoice_fab",
               onPressed: () => _showAddInvoiceDialog(),
               icon: const Icon(Icons.add),
               label: const Text('חשבונית חדשה'),
@@ -107,6 +108,7 @@ class _FinancialDashboardState extends State<FinancialDashboard> {
             )
           : _selectedTabIndex == 1
               ? FloatingActionButton.extended(
+                  heroTag: "finance_expense_fab",
                   onPressed: () => _showAddExpenseDialog(),
                   icon: const Icon(Icons.add),
                   label: const Text('הוצאה חדשה'),
@@ -302,6 +304,7 @@ class _FinancialDashboardState extends State<FinancialDashboard> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
+        isThreeLine: true,
         leading: CircleAvatar(
           backgroundColor: Colors.blue.withOpacity(0.2),
           child: const Icon(Icons.receipt, color: Colors.blue),
@@ -312,6 +315,7 @@ class _FinancialDashboardState extends State<FinancialDashboard> {
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(invoice['description']!),
             const SizedBox(height: 4),
@@ -319,20 +323,16 @@ class _FinancialDashboardState extends State<FinancialDashboard> {
               'תאריך יעד: 15/01/2024',
               style: TextStyle(color: Colors.grey[600]),
             ),
-          ],
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              invoice['amount']!,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const SizedBox(height: 4),
             _buildStatusChip(invoice['status']!),
           ],
+        ),
+        trailing: Text(
+          invoice['amount']!,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         onTap: () => _showInvoiceDetails(invoice),
       ),
@@ -366,6 +366,7 @@ class _FinancialDashboardState extends State<FinancialDashboard> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
+        isThreeLine: true,
         leading: CircleAvatar(
           backgroundColor: Colors.green.withOpacity(0.2),
           child: const Icon(Icons.build, color: Colors.green),
@@ -376,6 +377,7 @@ class _FinancialDashboardState extends State<FinancialDashboard> {
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(expense['vendor']!),
             const SizedBox(height: 4),
@@ -383,20 +385,16 @@ class _FinancialDashboardState extends State<FinancialDashboard> {
               'תאריך: 10/01/2024',
               style: TextStyle(color: Colors.grey[600]),
             ),
-          ],
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              expense['amount']!,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const SizedBox(height: 4),
             _buildStatusChip(expense['status']!),
           ],
+        ),
+        trailing: Text(
+          expense['amount']!,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         onTap: () => _showExpenseDetails(expense),
       ),

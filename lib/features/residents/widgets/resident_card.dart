@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/models/resident.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../core/services/building_context_service.dart';
 
 class ResidentCard extends StatelessWidget {
   final Resident resident;
@@ -193,6 +195,30 @@ class ResidentCard extends StatelessWidget {
                 ),
 
               const SizedBox(height: 12),
+
+              // Assigned assets (storage/parking)
+              FutureBuilder<Map<String, List<String>>>(
+                future: _loadAssignedAssets(resident.id),
+                builder: (context, snap) {
+                  final hasData = snap.hasData && (snap.data!['storage']!.isNotEmpty || snap.data!['parking']!.isNotEmpty);
+                  if (!hasData) return const SizedBox.shrink();
+                  final storage = snap.data!['storage']!;
+                  final parking = snap.data!['parking']!;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        if (storage.isNotEmpty)
+                          _buildInfoRow(Icons.inventory_2, 'מחסן: ${storage.join(', ')}'),
+                        if (parking.isNotEmpty)
+                          _buildInfoRow(Icons.local_parking, 'חניה: ${parking.join(', ')}'),
+                      ],
+                    ),
+                  );
+                },
+              ),
 
               // Dates and additional info
               Row(
@@ -438,4 +464,31 @@ class ResidentCard extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<Map<String, List<String>>> _loadAssignedAssets(String userId) async {
+  final buildingId = BuildingContextService.buildingId;
+  if (buildingId == null) return {'storage': [], 'parking': []};
+  final db = FirebaseFirestore.instance;
+
+  final storageSnap = await db
+      .collection('buildings')
+      .doc(buildingId)
+      .collection('storages')
+      .where('assignedToUserId', isEqualTo: userId)
+      .get();
+  final parkingSnap = await db
+      .collection('buildings')
+      .doc(buildingId)
+      .collection('parking')
+      .where('assignedToUserId', isEqualTo: userId)
+      .get();
+
+  final storage = storageSnap.docs.map((d) => d.data()['number']?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+  final parking = parkingSnap.docs.map((d) => d.data()['number']?.toString() ?? '').where((s) => s.isNotEmpty).toList();
+
+  return {
+    'storage': storage,
+    'parking': parking,
+  };
 }

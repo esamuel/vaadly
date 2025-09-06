@@ -8,7 +8,7 @@ class FirestoreResidentService {
   // Add a new resident
   static Future<Resident> addResident(Resident resident) async {
     try {
-      print('👤 Adding resident to Firestore: ${resident.name}');
+      print('👤 Adding resident to Firestore: ${resident.fullName}');
       
       // Add to Firestore
       final docRef = await _firestore.collection(_collection).add(resident.toMap());
@@ -31,12 +31,15 @@ class FirestoreResidentService {
       
       final querySnapshot = await _firestore
           .collection(_collection)
-          .where('buildingId', isEqualTo: buildingId)
-          .orderBy('name')
+          .where('customFields.buildingId', isEqualTo: buildingId)
           .get();
+      
+      // Sort by firstName after fetching
+      final sortedDocs = querySnapshot.docs.toList()
+        ..sort((a, b) => (a.data()['firstName'] ?? '').compareTo(b.data()['firstName'] ?? ''));
 
-      final residents = querySnapshot.docs
-          .map((doc) => Resident.fromFirestore(doc))
+      final residents = sortedDocs
+          .map((doc) => Resident.fromMap(doc.data(), doc.id))
           .toList();
 
       print('✅ Loaded ${residents.length} residents from Firestore');
@@ -50,7 +53,7 @@ class FirestoreResidentService {
   // Update a resident
   static Future<void> updateResident(Resident resident) async {
     try {
-      print('✏️ Updating resident: ${resident.name}');
+      print('✏️ Updating resident: ${resident.fullName}');
       
       await _firestore
           .collection(_collection)
@@ -88,8 +91,8 @@ class FirestoreResidentService {
       
       final stats = {
         'total': residents.length,
-        'owners': residents.where((r) => r.type == ResidentType.owner).length,
-        'tenants': residents.where((r) => r.type == ResidentType.tenant).length,
+        'owners': residents.where((r) => r.residentType == ResidentType.owner).length,
+        'tenants': residents.where((r) => r.residentType == ResidentType.tenant).length,
         'active': residents.where((r) => r.status == ResidentStatus.active).length,
         'inactive': residents.where((r) => r.status == ResidentStatus.inactive).length,
       };
@@ -109,10 +112,10 @@ class FirestoreResidentService {
       
       final filteredResidents = allResidents.where((resident) {
         final searchQuery = query.toLowerCase();
-        return resident.name.toLowerCase().contains(searchQuery) ||
+        return resident.fullName.toLowerCase().contains(searchQuery) ||
             resident.email.toLowerCase().contains(searchQuery) ||
-            resident.phone.toLowerCase().contains(searchQuery) ||
-            resident.unit.toString().contains(searchQuery);
+            resident.phoneNumber.toLowerCase().contains(searchQuery) ||
+            resident.apartmentNumber.toString().contains(searchQuery);
       }).toList();
       
       print('🔍 Search "$query" found ${filteredResidents.length} residents');
@@ -135,54 +138,64 @@ class FirestoreResidentService {
 
       print('🎭 Creating sample residents for building $buildingId...');
       
+      final now = DateTime.now();
       final sampleResidents = [
         Resident(
           id: '',
-          buildingId: buildingId,
-          name: 'דוד ישראלי',
+          firstName: 'דוד',
+          lastName: 'ישראלי',
+          apartmentNumber: '1',
+          floor: '1',
+          phoneNumber: '050-1234567',
           email: 'david.israeli@email.com',
-          phone: '050-1234567',
-          unit: 1,
-          floor: 1,
-          type: ResidentType.owner,
+          residentType: ResidentType.owner,
           status: ResidentStatus.active,
-          moveInDate: DateTime.now().subtract(const Duration(days: 365)),
+          moveInDate: now.subtract(const Duration(days: 365)),
+          isActive: true,
           notes: 'בעל דירה ותיק',
-          emergencyContact: 'שרה ישראלי - 050-7654321',
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
+          emergencyContact: 'שרה ישראלי',
+          emergencyPhone: '050-7654321',
+          createdAt: now,
+          updatedAt: now,
+          customFields: {'buildingId': buildingId},
         ),
         Resident(
           id: '',
-          buildingId: buildingId,
-          name: 'יוסי כהן',
+          firstName: 'יוסי',
+          lastName: 'כהן',
+          apartmentNumber: '5',
+          floor: '2',
+          phoneNumber: '052-9876543',
           email: 'yossi.cohen@email.com',
-          phone: '052-9876543',
-          unit: 5,
-          floor: 2,
-          type: ResidentType.tenant,
+          residentType: ResidentType.tenant,
           status: ResidentStatus.active,
-          moveInDate: DateTime.now().subtract(const Duration(days: 180)),
+          moveInDate: now.subtract(const Duration(days: 180)),
+          isActive: true,
           notes: 'דייר חדש',
-          emergencyContact: 'רחל כהן - 052-1111111',
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
+          emergencyContact: 'רחל כהן',
+          emergencyPhone: '052-1111111',
+          createdAt: now,
+          updatedAt: now,
+          customFields: {'buildingId': buildingId},
         ),
         Resident(
           id: '',
-          buildingId: buildingId,
-          name: 'מיכל רוזן',
+          firstName: 'מיכל',
+          lastName: 'רוזן',
+          apartmentNumber: '7',
+          floor: '3',
+          phoneNumber: '054-5555555',
           email: 'michal.rosen@email.com',
-          phone: '054-5555555',
-          unit: 7,
-          floor: 3,
-          type: ResidentType.owner,
+          residentType: ResidentType.owner,
           status: ResidentStatus.active,
-          moveInDate: DateTime.now().subtract(const Duration(days: 90)),
+          moveInDate: now.subtract(const Duration(days: 90)),
+          isActive: true,
           notes: 'משפחה עם ילדים',
-          emergencyContact: 'אבי רוזן - 054-6666666',
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
+          emergencyContact: 'אבי רוזן',
+          emergencyPhone: '054-6666666',
+          createdAt: now,
+          updatedAt: now,
+          customFields: {'buildingId': buildingId},
         ),
       ];
 

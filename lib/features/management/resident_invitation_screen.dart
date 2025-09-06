@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/building_context_service.dart';
+import '../../services/firebase_building_service.dart';
+import '../../core/config/app_links.dart';
 import '../../core/models/user.dart';
+import '../../core/utils/phone_number_formatter.dart';
 
 class ResidentInvitationScreen extends StatefulWidget {
   const ResidentInvitationScreen({super.key});
@@ -12,6 +15,7 @@ class ResidentInvitationScreen extends StatefulWidget {
 }
 
 class _ResidentInvitationScreenState extends State<ResidentInvitationScreen> {
+  int? _totalUnits;
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -20,6 +24,46 @@ class _ResidentInvitationScreenState extends State<ResidentInvitationScreen> {
   bool _isCreating = false;
   String? _errorMessage;
   String? _successMessage;
+  bool _isFormattingPhone = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBuildingLimits();
+    // Ensure any pre-filled phone value is formatted on load
+    if (_phoneController.text.isNotEmpty) {
+      final formatted = PhoneNumberFormatter().formatEditUpdate(
+        const TextEditingValue(text: ''),
+        TextEditingValue(text: _phoneController.text),
+      );
+      _phoneController.value = formatted;
+    }
+
+    // Listen for programmatic changes (e.g., autofill) and format consistently
+    _phoneController.addListener(() {
+      if (_isFormattingPhone) return;
+      final current = _phoneController.text;
+      if (current.isEmpty) return;
+      final formatted = PhoneNumberFormatter().formatEditUpdate(
+        const TextEditingValue(text: ''),
+        TextEditingValue(text: current),
+      );
+      if (formatted.text != current) {
+        _isFormattingPhone = true;
+        _phoneController.value = formatted;
+        _isFormattingPhone = false;
+      }
+    });
+  }
+
+  Future<void> _loadBuildingLimits() async {
+    try {
+      final ctx = BuildingContextService.currentBuilding;
+      if (ctx == null) return;
+      final b = await FirebaseBuildingService.getBuildingById(ctx.buildingId);
+      if (b != null) setState(() => _totalUnits = b.totalUnits);
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -41,24 +85,44 @@ class _ResidentInvitationScreenState extends State<ResidentInvitationScreen> {
 
     try {
       final buildingContext = BuildingContextService.currentBuilding!;
-      
-      // Create resident user
-      final resident = await AuthService.createUser(
-        email: _emailController.text.trim().toLowerCase(),
-        name: _nameController.text.trim(),
-        role: UserRole.resident,
-        buildingAccess: {buildingContext.buildingId: 'read'},
-        unitAccess: {_unitController.text.trim(): buildingContext.buildingId},
+      final email = _emailController.text.trim().toLowerCase();
+      final name = _nameController.text.trim();
+      const defaultPassword = '123456';
+
+      // Try to create Auth user; if email is already in use, continue anyway
+      String effectiveEmail = email;
+      try {
+        final authUser = await AuthService.createFirebaseAuthAccount(email, defaultPassword);
+        print('✅ Firebase Auth account created: ${authUser.email}');
+        effectiveEmail = authUser.email ?? email;
+      } catch (e) {
+        print('ℹ️ Skipping Auth creation: $e');
+      }
+
+      // Try to create app user; if user exists, continue (manager still shares link)
+      try {
+        await AuthService.createUser(
+          email: effectiveEmail,
+          name: name,
+          role: UserRole.resident,
+          buildingAccess: {buildingContext.buildingId: 'read'},
+          unitAccess: {_unitController.text.trim(): buildingContext.buildingId},
+        );
+      } catch (e) {
+        print('ℹ️ Skipping user doc creation (might exist): $e');
+      }
+
+      // Generate canonical invitation link for resident portal
+      final invitationLink = AppLinks.buildingPortal(
+        buildingContext.buildingCode,
+        canonical: true,
       );
 
-      // Generate invitation link
-      final invitationLink = 'http://localhost:3000/building/${buildingContext.buildingCode}';
-      
       setState(() {
-        _successMessage = 'Resident invited successfully!\n'
-            'Share this link: $invitationLink\n'
-            'Email: ${resident.email}\n'
-            'Temporary password: 123456';
+        _successMessage = 'הדייר הוזמן בהצלחה!\n'
+            'שתף קישור זה: $invitationLink\n'
+            'דוא"ל (אם רלוונטי): $effectiveEmail\n'
+            'סיסמה זמנית (אם נוצר משתמש חדש): 123456';
       });
 
       // Clear form
@@ -82,7 +146,7 @@ class _ResidentInvitationScreenState extends State<ResidentInvitationScreen> {
     if (_successMessage != null) {
       Clipboard.setData(ClipboardData(text: _successMessage!));
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invitation details copied to clipboard')),
+const SnackBar(content: Text('פרטי ההזמנה הועתקו ללוח'))
       );
     }
   }
@@ -93,7 +157,7 @@ class _ResidentInvitationScreenState extends State<ResidentInvitationScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Invite New Resident'),
+        title: const Text('הזמן דייר חדש'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: SingleChildScrollView(
@@ -114,11 +178,11 @@ class _ResidentInvitationScreenState extends State<ResidentInvitationScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            buildingContext?.buildingName ?? 'Unknown Building',
+                            buildingContext?.buildingName ?? 'בניין לא ידוע',
                             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                           Text(
-                            'Invite residents to access building portal',
+                            'הזמן דיירים לפורטל הבניין',
                             style: TextStyle(color: Colors.grey[600]),
                           ),
                         ],
@@ -140,7 +204,7 @@ class _ResidentInvitationScreenState extends State<ResidentInvitationScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'New Resident Details',
+'פרטי דייר חדש',
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -150,14 +214,14 @@ class _ResidentInvitationScreenState extends State<ResidentInvitationScreen> {
                       TextFormField(
                         controller: _nameController,
                         decoration: const InputDecoration(
-                          labelText: 'Full Name *',
-                          hintText: 'Enter resident\'s full name',
+labelText: 'שם מלא *',
+                          hintText: 'הכנס שם מלא של הדייר',
                           prefixIcon: Icon(Icons.person),
                           border: OutlineInputBorder(),
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Please enter resident\'s name';
+return 'אנא הזן שם דייר';
                           }
                           return null;
                         },
@@ -168,17 +232,17 @@ class _ResidentInvitationScreenState extends State<ResidentInvitationScreen> {
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         decoration: const InputDecoration(
-                          labelText: 'Email Address *',
-                          hintText: 'Enter resident\'s email',
+labelText: 'דואר אלקטרוני *',
+                          hintText: 'הכנס דוא"ל של הדייר',
                           prefixIcon: Icon(Icons.email),
                           border: OutlineInputBorder(),
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Please enter email address';
+return 'אנא הזן דואר אלקטרוני';
                           }
                           if (!value.contains('@')) {
-                            return 'Please enter a valid email address';
+return 'אנא הזן דוא"ל תקין';
                           }
                           return null;
                         },
@@ -191,14 +255,20 @@ class _ResidentInvitationScreenState extends State<ResidentInvitationScreen> {
                             child: TextFormField(
                               controller: _unitController,
                               decoration: const InputDecoration(
-                                labelText: 'Unit Number *',
-                                hintText: 'e.g., 101, A-5',
+labelText: 'מספר דירה *',
+                                hintText: 'לדוגמה: 4, 12, 101',
                                 prefixIcon: Icon(Icons.home),
                                 border: OutlineInputBorder(),
                               ),
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
-                                  return 'Please enter unit number';
+                                  return 'אנא הזן מספר דירה';
+                                }
+                                final numVal = int.tryParse(value.trim());
+                                if (numVal != null && _totalUnits != null) {
+                                  if (numVal < 1 || numVal > _totalUnits!) {
+                                    return 'מספר הדירה חייב להיות בין 1 ל-$_totalUnits';
+                                  }
                                 }
                                 return null;
                               },
@@ -210,11 +280,16 @@ class _ResidentInvitationScreenState extends State<ResidentInvitationScreen> {
                               controller: _phoneController,
                               keyboardType: TextInputType.phone,
                               decoration: const InputDecoration(
-                                labelText: 'Phone Number',
-                                hintText: 'Optional',
+labelText: 'מספר טלפון',
+                                hintText: 'לא חובה',
                                 prefixIcon: Icon(Icons.phone),
                                 border: OutlineInputBorder(),
                               ),
+                              textDirection: TextDirection.ltr,
+                              inputFormatters: [
+                                PhoneNumberFormatter(),
+                                LengthLimitingTextInputFormatter(13),
+                              ],
                             ),
                           ),
                         ],
@@ -265,14 +340,14 @@ class _ResidentInvitationScreenState extends State<ResidentInvitationScreen> {
                                   const Icon(Icons.check_circle_outline, color: Colors.green),
                                   const SizedBox(width: 8),
                                   const Text(
-                                    'Invitation Created!',
+                                    'הזמנה נוצרה!',
                                     style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
                                   ),
                                   const Spacer(),
                                   IconButton(
                                     onPressed: _copyInvitationDetails,
                                     icon: const Icon(Icons.copy, color: Colors.green),
-                                    tooltip: 'Copy details',
+tooltip: 'העתק פרטים',
                                   ),
                                 ],
                               ),
@@ -308,11 +383,11 @@ class _ResidentInvitationScreenState extends State<ResidentInvitationScreen> {
                                       ),
                                     ),
                                     SizedBox(width: 8),
-                                    Text('Creating Invitation...'),
+                                    Text('יוצר הזמנה...'),
                                   ],
                                 )
-                              : const Text(
-                                  'Create Resident Account & Send Invitation',
+: const Text(
+                                  'יצירת משתמש לדייר ושליחת הזמנה',
                                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                 ),
                         ),
@@ -337,7 +412,7 @@ class _ResidentInvitationScreenState extends State<ResidentInvitationScreen> {
                         const Icon(Icons.info_outline, color: Colors.blue),
                         const SizedBox(width: 8),
                         Text(
-                          'How it works:',
+                          'איך זה עובד:',
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: Colors.blue,
@@ -346,11 +421,11 @@ class _ResidentInvitationScreenState extends State<ResidentInvitationScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const Text('1. Fill in the resident\'s details above'),
-                    const Text('2. Click "Create Resident Account & Send Invitation"'),
-                    const Text('3. Share the generated link with the resident'),
-                    const Text('4. Resident uses the link to access their building portal'),
-                    const Text('5. They can view payments, submit requests, and see building info'),
+                    const Text('1. מלא את פרטי הדייר למעלה'),
+                    const Text('2. לחץ על "יצירת משתמש לדייר ושליחת הזמנה"'),
+                    const Text('3. שתף את הקישור שנוצר עם הדייר'),
+                    const Text('4. הדייר ייכנס לפורטל הבניין דרך הקישור'),
+                    const Text('5. ניתן לצפות בתשלומים, לשלוח בקשות ולראות מידע על הבניין')
                   ],
                 ),
               ),

@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/services/firebase_service.dart';
+import '../core/services/auth_service.dart';
 import '../core/models/building.dart';
+import 'asset_inventory_service.dart';
 
 class FirebaseBuildingService {
   static const String _collection = 'buildings';
@@ -30,6 +32,33 @@ class FirebaseBuildingService {
       );
       
       print('✅ Building saved to Firestore with ID: ${docRef.id}');
+
+      // Seed storage and parking inventories
+      try {
+        await AssetInventoryService.seedInventoryForBuilding(
+          buildingId: docRef.id,
+          storageCount: savedBuilding.storageUnits,
+          parkingCount: savedBuilding.parkingSpaces,
+        );
+        print('✅ Seeded inventories (storages: ${savedBuilding.storageUnits}, parking: ${savedBuilding.parkingSpaces})');
+      } catch (e) {
+        print('⚠️ Failed to seed inventories: $e');
+      }
+      
+      // Grant admin access to the current user for this building
+      final currentUser = AuthService.currentUser;
+      if (currentUser != null) {
+        print('🔑 Granting admin access to user: ${currentUser.email}');
+        await AuthService.updateUserAccess(
+          userId: currentUser.id,
+          buildingAccess: {
+            ...currentUser.buildingAccess,
+            docRef.id: 'admin',
+          },
+        );
+        print('✅ Admin access granted for building: ${docRef.id}');
+      }
+      
       return savedBuilding;
     } catch (e) {
       print('❌ Error adding building to Firestore: $e');
@@ -209,9 +238,10 @@ class FirebaseBuildingService {
 
   /// Stream buildings for real-time updates
   static Stream<List<Building>> streamBuildings() {
-    try {
-      print('🔄 Setting up real-time buildings stream...');
-      
+    print('🔄 Setting up real-time buildings stream...');
+
+    // Ensure Firebase is initialized before starting the stream
+    return Stream.fromFuture(FirebaseService.initialize()).asyncExpand((_) {
       return FirebaseService.firestore
           .collection(_collection)
           .orderBy('createdAt', descending: true)
@@ -220,13 +250,13 @@ class FirebaseBuildingService {
         final buildings = snapshot.docs.map((doc) {
           return Building.fromMap(doc.data(), doc.id);
         }).toList();
-        
+
         print('🔄 Buildings stream updated: ${buildings.length} buildings');
         return buildings;
       });
-    } catch (e) {
+    }).handleError((e, stack) {
       print('❌ Error setting up buildings stream: $e');
-      rethrow;
-    }
+      throw e;
+    });
   }
 }

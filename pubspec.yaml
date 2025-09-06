@@ -35,9 +35,27 @@ dependencies:
   cupertino_icons: ^1.0.2
   firebase_core: ^2.32.0
   cloud_firestore: ^4.17.5
+  firebase_messaging: ^14.9.4
+  firebase_storage: ^11.7.7
+  firebase_auth: ^4.20.0
+  image_picker: ^1.1.2
+
+  # State management
+  provider: ^6.1.2
 
   # Internationalization
   intl: ^0.20.2
+  
+  # Payment processing
+  flutter_stripe: ^10.1.1
+  http: ^1.1.0
+  
+  # Email services
+  mailer: ^6.0.1
+  
+  # Fonts
+  google_fonts: ^6.2.1
+  cloud_functions: ^4.7.6
 
 dev_dependencies:
   flutter_test:

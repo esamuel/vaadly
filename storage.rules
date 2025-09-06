@@ -9,6 +9,11 @@ service firebase.storage {
       allow read, write: if authed(); // tie UI to Firestore rules to gate listing
     }
     
+    // Resident issues attachments
+    match /buildings/{b}/issues/{issueId}/attachments/{file} {
+      allow read, write: if authed();
+    }
+    
     match /buildings/{b}/documents/{file} {
       allow read, write: if authed();
     }

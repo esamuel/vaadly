@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../../../core/models/resident.dart';
 import '../../../core/services/resident_service.dart';
 import '../../../services/firebase_resident_service.dart';
+import '../../../services/firebase_activity_service.dart';
 import '../../../core/services/auth_service.dart';
 import '../widgets/add_resident_form.dart';
 import '../widgets/resident_card.dart';
@@ -27,11 +29,20 @@ class _ResidentsPageState extends State<ResidentsPage> {
   bool _showOnlyActive = true;
   String? _buildingId;
   bool _loading = false;
+  StreamSubscription<List<Resident>>? _residentsSub;
+  Timer? _searchDebounce;
 
   @override
   void initState() {
     super.initState();
     _initializeBuildingContext();
+  }
+
+  @override
+  void dispose() {
+    _residentsSub?.cancel();
+    _searchDebounce?.cancel();
+    super.dispose();
   }
 
   Future<void> _initializeBuildingContext() async {
@@ -43,11 +54,29 @@ class _ResidentsPageState extends State<ResidentsPage> {
     if (user != null && user.isBuildingCommittee) {
       _buildingId = user.buildingAccess.keys.first;
       print('🔍 ResidentsPage - Using building ID: $_buildingId');
-      await _loadResidents();
+      _subscribeToResidents();
     } else {
       // Fallback to old service for other users
       _loadResidentsLocal();
     }
+  }
+
+  void _subscribeToResidents() {
+    if (_buildingId == null) return;
+    _residentsSub?.cancel();
+    setState(() => _loading = true);
+    _residentsSub = FirebaseResidentService
+        .streamResidents(_buildingId!)
+        .listen((list) {
+      setState(() {
+        _residents = list;
+        _applyFilters();
+        _loading = false;
+      });
+    }, onError: (e) {
+      print('❌ Error in residents stream: $e');
+      setState(() => _loading = false);
+    });
   }
 
   Future<void> _loadResidents() async {
@@ -132,40 +161,111 @@ class _ResidentsPageState extends State<ResidentsPage> {
       if (resident.id.isEmpty) {
         // New resident - add to Firebase
         print('👤 Adding new resident: ${resident.firstName} ${resident.lastName}');
+        
+        // Show loading indicator
+        setState(() => _loading = true);
+        
         final newId = await FirebaseResidentService.addResident(_buildingId!, resident);
         if (newId != null) {
           print('✅ Resident added with ID: $newId');
-          await _loadResidents(); // Reload from Firebase
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('הדייר נוסף בהצלחה'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          
+          // Real-time stream will update the UI automatically
+          setState(() => _loading = false);
+          
+          // Log activity (best-effort)
+          try {
+            await FirebaseActivityService.logActivity(
+              buildingId: _buildingId!,
+              type: 'resident_added',
+              title: 'דייר חדש נוסף',
+subtitle: 'app ${resident.apartmentNumber}, ${resident.firstName} ${resident.lastName}',
+              extra: {'residentId': newId},
+            );
+          } catch (_) {}
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('הדייר נוסף בהצלחה'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        } else {
+          setState(() => _loading = false);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('שגיאה בהוספת דייר'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
       } else {
         // Update existing resident
-        await FirebaseResidentService.updateResident(_buildingId!, resident.id, resident);
-        await _loadResidents();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('הדייר עודכן בהצלחה'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        print('✏️ Updating existing resident: ${resident.firstName} ${resident.lastName}');
+        
+        setState(() => _loading = true);
+        
+        final success = await FirebaseResidentService.updateResident(_buildingId!, resident.id, resident);
+        if (success) {
+          // Real-time stream will update the UI automatically
+          setState(() => _loading = false);
+          
+          // Log activity (best-effort)
+          try {
+            await FirebaseActivityService.logActivity(
+              buildingId: _buildingId!,
+              type: 'resident_updated',
+              title: 'עודכן דייר',
+subtitle: 'app ${resident.apartmentNumber}, ${resident.firstName} ${resident.lastName}',
+              extra: {'residentId': resident.id},
+            );
+          } catch (_) {}
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('הדייר עודכן בהצלחה'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        } else {
+          setState(() => _loading = false);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('שגיאה בעדכון דייר'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
       }
     } catch (e) {
       print('❌ Error saving resident: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('שגיאה בשמירת הדייר: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      setState(() => _loading = false);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('שגיאה בשמירת הדייר: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       
       // Fallback to local service
-      ResidentService.addResident(resident);
-      _loadResidentsLocal();
+      try {
+        ResidentService.addResident(resident);
+        _loadResidentsLocal();
+      } catch (localError) {
+        print('❌ Local fallback also failed: $localError');
+      }
     }
   }
 
@@ -196,34 +296,71 @@ class _ResidentsPageState extends State<ResidentsPage> {
               Navigator.of(context).pop();
               
               if (_buildingId != null) {
-                // Delete from Firebase
-                final success = await FirebaseResidentService.deleteResident(_buildingId!, resident.id);
-                if (success) {
-                  await _loadResidents();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('הדייר נמחק בהצלחה'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('שגיאה במחיקת הדייר'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
+                try {
+                  print('🗑️ Deleting resident: ${resident.firstName} ${resident.lastName}');
+                  
+                  // Show loading state
+                  setState(() => _loading = true);
+                  
+                  // Delete from Firebase
+                  final success = await FirebaseResidentService.deleteResident(_buildingId!, resident.id);
+                  
+                  if (success) {
+                    print('✅ Resident deleted successfully');
+                    // Real-time stream will update the UI automatically
+                    setState(() => _loading = false);
+                    
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('הדייר נמחק בהצלחה'),
+                          backgroundColor: Colors.orange,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  } else {
+                    setState(() => _loading = false);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('שגיאה במחיקת הדייר'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                } catch (e) {
+                  print('❌ Error deleting resident: $e');
+                  setState(() => _loading = false);
+                  
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('שגיאה במחיקת הדייר: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
                 }
               } else {
-                // Fallback to local service
-                ResidentService.deleteResident(resident.id);
-                _loadResidentsLocal();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('הדייר נמחק בהצלחה'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                try {
+                  // Fallback to local service
+                  ResidentService.deleteResident(resident.id);
+                  _loadResidentsLocal();
+                  
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('הדייר נמחק בהצלחה'),
+                        backgroundColor: Colors.orange,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  print('❌ Local delete failed: $e');
+                }
               }
             },
             child: const Text('מחק', style: TextStyle(color: Colors.red)),
@@ -308,6 +445,10 @@ class _ResidentsPageState extends State<ResidentsPage> {
     
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text('👥 דיירי הבניין'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         centerTitle: true,
@@ -383,9 +524,13 @@ class _ResidentsPageState extends State<ResidentsPage> {
                     fillColor: Colors.grey[50],
                   ),
                   onChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                      _applyFilters();
+                    _searchDebounce?.cancel();
+                    _searchQuery = value;
+                    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+                      if (!mounted) return;
+                      setState(() {
+                        _applyFilters();
+                      });
                     });
                   },
                 ),
@@ -529,6 +674,7 @@ class _ResidentsPageState extends State<ResidentsPage> {
         ],
       ),
       floatingActionButton: widget.showFloatingActionButton ? FloatingActionButton.extended(
+        heroTag: "residents_fab", // Unique hero tag
         onPressed: () {
           Navigator.of(context).push(
             MaterialPageRoute(

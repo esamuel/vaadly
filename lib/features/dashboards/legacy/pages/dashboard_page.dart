@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../core/services/firebase_service.dart';
-import '../../../core/models/building.dart';
-import '../../building/widgets/add_building_form.dart';
+import 'package:vaadly/core/services/firebase_service.dart';
+import 'package:vaadly/core/models/building.dart';
+import 'package:vaadly/features/buildings/building_module/widgets/add_building_form.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -92,6 +92,10 @@ class _DashboardPageState extends State<DashboardPage> {
     if (_buildings.isEmpty) {
       return Scaffold(
         appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
           title: const Text('📊 דשבורד'),
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         ),
@@ -143,6 +147,10 @@ class _DashboardPageState extends State<DashboardPage> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text('📊 דשבורד'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [

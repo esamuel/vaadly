@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/models/building.dart';
+import '../../core/services/auth_service.dart';
+import '../../core/services/building_context_service.dart';
+import '../../core/utils/phone_number_formatter.dart';
 
 class BuildingSettingsDashboard extends StatefulWidget {
-  const BuildingSettingsDashboard({super.key});
+  final String? buildingId;
+  const BuildingSettingsDashboard({super.key, this.buildingId});
 
   @override
   State<BuildingSettingsDashboard> createState() =>
@@ -13,6 +19,9 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
   bool _loading = false;
   Building? _building;
   final _formKey = GlobalKey<FormState>();
+
+  // Current building identifier
+  String? _currentBuildingId;
 
   // Form controllers
   final _buildingNameController = TextEditingController();
@@ -39,47 +48,133 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
     super.dispose();
   }
 
+  // Load building data directly from the buildings collection
+  Future<Building?> _getBuildingById(String buildingId) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('buildings')
+          .doc(buildingId)
+          .get();
+      if (doc.exists) {
+        return Building.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+      }
+    } catch (e) {
+      debugPrint('Failed to load building $buildingId: $e');
+    }
+    return null;
+  }
+
   Future<void> _loadBuildingData() async {
     setState(() => _loading = true);
+    try {
+      // Determine target buildingId from context or current user
+      String? buildingId = widget.buildingId;
+      if (buildingId == null && BuildingContextService.hasBuilding) {
+        buildingId = BuildingContextService.buildingId;
+      } else if (buildingId == null) {
+        final user = AuthService.currentUser;
+        if (user != null && user.buildingAccess.isNotEmpty) {
+          buildingId = user.buildingAccess.keys.first;
+        }
+      }
 
-    // Simulate loading building data
-    await Future.delayed(const Duration(milliseconds: 500));
+      if (buildingId == null) {
+        debugPrint('No building context available for settings');
+        setState(() => _loading = false);
+        return;
+      }
 
-    // Create sample building data
-    _building = Building(
-      id: 'building1',
-      buildingCode: 'LEVI-24',
-      name: 'לוי אשכול 24',
-      address: 'לוי אשכול 24',
-      city: 'תל אביב',
-      postalCode: '6713201',
-      country: 'ישראל',
-      totalFloors: 8,
-      totalUnits: 32,
-      parkingSpaces: 20,
-      storageUnits: 8,
-      buildingArea: 2500.0,
-      yearBuilt: 2015,
-      buildingType: 'residential',
-      amenities: ['elevator', 'parking', 'garden', 'security'],
-      buildingManager: 'יוסי כהן',
-      managerPhone: '050-1234567',
-      managerEmail: 'yossi@levi24.co.il',
-      notes: 'בניין חדש עם מערכות מתקדמות',
-      createdAt: DateTime.now().subtract(const Duration(days: 365)),
-      updatedAt: DateTime.now(),
-      isActive: true,
-    );
+      _currentBuildingId = buildingId;
 
-    // Populate form controllers
-    _buildingNameController.text = _building!.name;
-    _addressController.text = _building!.address;
-    _cityController.text = _building!.city;
-    _managerNameController.text = _building!.buildingManager ?? '';
-    _managerPhoneController.text = _building!.managerPhone ?? '';
-    _managerEmailController.text = _building!.managerEmail ?? '';
+      // Fetch building directly from the buildings collection
+      debugPrint('🔍 Settings: Attempting to load building $buildingId');
+      final loaded = await _getBuildingById(buildingId);
 
-    setState(() => _loading = false);
+      if (loaded == null) {
+        debugPrint('❌ Settings: Building $buildingId not found');
+        setState(() => _loading = false);
+        return;
+      }
+      
+      debugPrint('✅ Settings: Building loaded successfully - ${loaded.name}');
+      debugPrint('📊 Settings: Building data - Manager: ${loaded.buildingManager}, Phone: ${loaded.managerPhone}, Email: ${loaded.managerEmail}');
+      debugPrint('📊 Settings: Building data - Address: ${loaded.address}, City: ${loaded.city}');
+      debugPrint('📊 Settings: Building data - Floors: ${loaded.totalFloors}, Units: ${loaded.totalUnits}');
+
+      // Auto-correct wrong name/address if needed based on building context
+      String correctedName = loaded.name;
+      String correctedAddress = loaded.address;
+      bool needsCorrection = false;
+
+      // Get the correct building name from BuildingContextService if available
+      String? contextBuildingName = BuildingContextService.hasBuilding 
+          ? BuildingContextService.currentBuilding?.buildingName 
+          : null;
+
+      // If we have context and the stored name doesn't match, correct it
+      if (contextBuildingName != null && contextBuildingName.isNotEmpty) {
+        if (correctedName.trim() != contextBuildingName.trim()) {
+          debugPrint('Building name correction: "$correctedName" -> "$contextBuildingName"');
+          correctedName = contextBuildingName;
+          needsCorrection = true;
+        }
+        if (correctedAddress.trim() != contextBuildingName.trim() && correctedAddress.trim() != loaded.address.trim()) {
+          debugPrint('Building address correction: "$correctedAddress" -> "$contextBuildingName"');
+          correctedAddress = contextBuildingName;
+          needsCorrection = true;
+        }
+      }
+
+      // Fallback: specific hardcoded corrections for known data issues
+      if (correctedName.trim() == 'לוי אשכול 24') {
+        correctedName = 'בורלא 14';
+        needsCorrection = true;
+      }
+      if (correctedAddress.trim() == 'לוי אשכול 24') {
+        correctedAddress = 'בורלא 14';
+        needsCorrection = true;
+      }
+
+      _building = loaded.copyWith(name: correctedName, address: correctedAddress);
+
+      // Populate form controllers
+      debugPrint('📝 Settings: Populating form controllers...');
+      _buildingNameController.text = _building!.name;
+      _addressController.text = _building!.address;
+      _cityController.text = _building!.city;
+      _managerNameController.text = _building!.buildingManager ?? '';
+      _managerPhoneController.text = _building!.managerPhone ?? '';
+      _managerEmailController.text = _building!.managerEmail ?? '';
+      
+      debugPrint('✅ Settings: Controllers populated with:');
+      debugPrint('   - Name: "${_buildingNameController.text}"');
+      debugPrint('   - Address: "${_addressController.text}"');
+      debugPrint('   - City: "${_cityController.text}"');
+      debugPrint('   - Manager: "${_managerNameController.text}"');
+      debugPrint('   - Phone: "${_managerPhoneController.text}"');
+      debugPrint('   - Email: "${_managerEmailController.text}"');
+
+      // Persist auto-correction back to Firestore if needed
+      if (needsCorrection) {
+        try {
+          await FirebaseFirestore.instance
+              .collection('buildings')
+              .doc(buildingId)
+              .update({
+            'name': correctedName,
+            'address': correctedAddress,
+            'updatedAt': Timestamp.now(),
+          });
+          debugPrint('✅ Corrected building data persisted (name/address)');
+        } catch (e) {
+          debugPrint('❌ Failed to persist corrected building data: $e');
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to load building data: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -88,6 +183,19 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
       appBar: AppBar(
         title: const Text('⚙️ הגדרות בניין'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            // Check if we can pop or if we need to navigate to a safe route
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              // If we can't pop, navigate to the root dashboard
+              Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+            }
+          },
+          tooltip: 'חזור',
+        ),
         actions: [
           IconButton(
             onPressed: _saveSettings,
@@ -163,11 +271,23 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
                   ),
                   const SizedBox(height: 16),
 
-                  _buildTextField(
+                  TextFormField(
                     controller: _managerPhoneController,
-                    label: 'טלפון',
-                    icon: Icons.phone,
                     keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      labelText: 'טלפון',
+                      prefixIcon: const Icon(Icons.phone),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[50],
+                    ),
+                    textDirection: TextDirection.ltr,
+                    inputFormatters: [
+                      PhoneNumberFormatter(),
+                      LengthLimitingTextInputFormatter(13),
+                    ],
                   ),
                   const SizedBox(height: 16),
 
@@ -342,9 +462,9 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -426,15 +546,65 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
     );
   }
 
-  void _saveSettings() {
-    if (_formKey.currentState!.validate()) {
-      // TODO: Implement save settings
+  void _saveSettings() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_currentBuildingId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('לא נמצאה מסגרת בניין לשמירה'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      final updates = {
+        'name': _buildingNameController.text.trim(),
+        'address': _addressController.text.trim(),
+        'city': _cityController.text.trim(),
+        'buildingManager': _managerNameController.text.trim(),
+        'managerPhone': _managerPhoneController.text.trim(),
+        'managerEmail': _managerEmailController.text.trim(),
+        'updatedAt': Timestamp.now(),
+      };
+
+      await FirebaseFirestore.instance
+          .collection('buildings')
+          .doc(_currentBuildingId)
+          .update(updates);
+
+      // Update local model
+      if (_building != null) {
+        _building = _building!.copyWith(
+          name: updates['name'] as String,
+          address: updates['address'] as String,
+          city: updates['city'] as String,
+          buildingManager: updates['buildingManager'] as String,
+          managerPhone: updates['managerPhone'] as String,
+          managerEmail: updates['managerEmail'] as String,
+          updatedAt: DateTime.now(),
+        );
+      }
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('ההגדרות נשמרו בהצלחה'),
           backgroundColor: Colors.green,
         ),
       );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('שגיאה בשמירת ההגדרות: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

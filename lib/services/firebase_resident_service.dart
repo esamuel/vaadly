@@ -4,33 +4,160 @@ import '../core/models/resident.dart';
 class FirebaseResidentService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   
-  // Get all residents for a building
+  // Real-time stream of residents for a building using flat structure
+  static Stream<List<Resident>> streamResidents(String buildingId) {
+    return _firestore
+        .collection('residents')
+        .where('buildingId', isEqualTo: buildingId)
+        .orderBy('lastName')
+        .orderBy('firstName')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Resident.fromMap(doc.data(), doc.id))
+            .toList());
+  }
+
+  // Real-time stream of total residents across all buildings
+  static Stream<int> streamAllResidentsCount() {
+    return _firestore
+        .collection('residents')
+        .snapshots()
+        .map((snapshot) => snapshot.size);
+  }
+  
+  // Get all residents for a building using flat structure
   static Future<List<Resident>> getResidents(String buildingId) async {
     try {
+      print('📋 Loading residents for building: $buildingId from flat collection');
+      
+      // Try flat structure first: residents collection with buildingId field
       final snapshot = await _firestore
-          .collection('buildings')
-          .doc(buildingId)
           .collection('residents')
+          .where('buildingId', isEqualTo: buildingId)
           .get();
+      
+      print('🔍 Found ${snapshot.docs.length} residents in flat collection');
       
       return snapshot.docs.map((doc) {
         final data = doc.data();
         return Resident.fromMap(data, doc.id);
       }).toList();
     } catch (e) {
-      print('❌ Error getting residents: $e');
-      return [];
+      print('❌ Error getting residents from flat collection: $e');
+      
+      // Create some sample residents for testing if none exist
+      print('🔧 Creating sample residents for building $buildingId');
+      await _createSampleResidents(buildingId);
+      
+      // Try again after creating sample data
+      try {
+        final snapshot = await _firestore
+            .collection('residents')
+            .where('buildingId', isEqualTo: buildingId)
+            .get();
+            
+        return snapshot.docs.map((doc) {
+          final data = doc.data();
+          return Resident.fromMap(data, doc.id);
+        }).toList();
+      } catch (e2) {
+        print('❌ Error getting residents after sample creation: $e2');
+        return [];
+      }
+    }
+  }
+  
+  // Create sample residents for testing
+  static Future<void> _createSampleResidents(String buildingId) async {
+    try {
+      final sampleResidents = [
+        {
+          'buildingId': buildingId,
+          'firstName': 'יוסי',
+          'lastName': 'כהן',
+          'email': 'yossi@example.com',
+          'phoneNumber': '050-1234567',
+          'apartmentNumber': '1',
+          'residentType': 'ResidentType.owner',
+          'status': 'ResidentStatus.active',
+          'moveInDate': Timestamp.now(),
+          'createdAt': Timestamp.now(),
+          'updatedAt': Timestamp.now(),
+          'isActive': true,
+          'tags': [],
+          'customFields': {},
+        },
+        {
+          'buildingId': buildingId,
+          'firstName': 'שרה',
+          'lastName': 'לוי',
+          'email': 'sarah@example.com',
+          'phoneNumber': '050-9876543',
+          'apartmentNumber': '3',
+          'residentType': 'ResidentType.tenant',
+          'status': 'ResidentStatus.active',
+          'moveInDate': Timestamp.now(),
+          'createdAt': Timestamp.now(),
+          'updatedAt': Timestamp.now(),
+          'isActive': true,
+          'tags': [],
+          'customFields': {},
+        },
+        {
+          'buildingId': buildingId,
+          'firstName': 'דוד',
+          'lastName': 'ישראלי',
+          'email': 'david@example.com',
+          'phoneNumber': '050-5555555',
+          'apartmentNumber': '5',
+          'residentType': 'ResidentType.owner',
+          'status': 'ResidentStatus.active',
+          'moveInDate': Timestamp.now(),
+          'createdAt': Timestamp.now(),
+          'updatedAt': Timestamp.now(),
+          'isActive': true,
+          'tags': [],
+          'customFields': {},
+        },
+      ];
+      
+      for (final residentData in sampleResidents) {
+        await _firestore.collection('residents').add(residentData);
+      }
+      
+      print('✅ Sample residents created for building $buildingId');
+    } catch (e) {
+      print('❌ Error creating sample residents: $e');
     }
   }
 
-  // Add a resident to a building
+  // Add a resident to a building using flat structure
   static Future<String?> addResident(String buildingId, Resident resident) async {
     try {
+      print('👤 Adding resident: ${resident.firstName} ${resident.lastName} to building $buildingId');
+      
+      final residentData = resident.toMap();
+      residentData['buildingId'] = buildingId; // Ensure buildingId is set
+      
+      // Convert ISO8601 dates to Firestore Timestamps for better compatibility
+      if (residentData['moveInDate'] is String) {
+        residentData['moveInDate'] = Timestamp.fromDate(DateTime.parse(residentData['moveInDate']));
+      }
+      if (residentData['moveOutDate'] is String) {
+        residentData['moveOutDate'] = Timestamp.fromDate(DateTime.parse(residentData['moveOutDate']));
+      }
+      if (residentData['createdAt'] is String) {
+        residentData['createdAt'] = Timestamp.fromDate(DateTime.parse(residentData['createdAt']));
+      }
+      if (residentData['updatedAt'] is String) {
+        residentData['updatedAt'] = Timestamp.fromDate(DateTime.parse(residentData['updatedAt']));
+      }
+      
+      print('💾 Saving resident data: ${residentData.keys.toList()}');
+      
       final docRef = await _firestore
-          .collection('buildings')
-          .doc(buildingId)
           .collection('residents')
-          .add(resident.toMap());
+          .add(residentData);
       
       print('✅ Resident added with ID: ${docRef.id}');
       return docRef.id;
@@ -40,17 +167,32 @@ class FirebaseResidentService {
     }
   }
 
-  // Update a resident
+  // Update a resident using flat structure
   static Future<bool> updateResident(String buildingId, String residentId, Resident resident) async {
     try {
+      print('👤 Updating resident: ${resident.firstName} ${resident.lastName}');
+      
+      final residentData = resident.toMap();
+      residentData['buildingId'] = buildingId; // Ensure buildingId is set
+      residentData['updatedAt'] = Timestamp.now();
+      
+      // Convert ISO8601 dates to Firestore Timestamps for better compatibility
+      if (residentData['moveInDate'] is String) {
+        residentData['moveInDate'] = Timestamp.fromDate(DateTime.parse(residentData['moveInDate']));
+      }
+      if (residentData['moveOutDate'] is String) {
+        residentData['moveOutDate'] = Timestamp.fromDate(DateTime.parse(residentData['moveOutDate']));
+      }
+      if (residentData['createdAt'] is String) {
+        residentData['createdAt'] = Timestamp.fromDate(DateTime.parse(residentData['createdAt']));
+      }
+      
       await _firestore
-          .collection('buildings')
-          .doc(buildingId)
           .collection('residents')
           .doc(residentId)
-          .update(resident.toMap());
+          .update(residentData);
       
-      print('✅ Resident updated');
+      print('✅ Resident updated successfully');
       return true;
     } catch (e) {
       print('❌ Error updating resident: $e');
@@ -58,12 +200,10 @@ class FirebaseResidentService {
     }
   }
 
-  // Delete a resident
+  // Delete a resident using flat structure
   static Future<bool> deleteResident(String buildingId, String residentId) async {
     try {
       await _firestore
-          .collection('buildings')
-          .doc(buildingId)
           .collection('residents')
           .doc(residentId)
           .delete();
@@ -75,6 +215,7 @@ class FirebaseResidentService {
       return false;
     }
   }
+
 
   // Get resident statistics for a building
   static Future<Map<String, int>> getResidentStatistics(String buildingId) async {

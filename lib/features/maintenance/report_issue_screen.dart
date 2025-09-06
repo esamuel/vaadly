@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
 import '../../core/services/auth_service.dart';
 import '../../core/services/building_context_service.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ReportIssueScreen extends StatefulWidget {
   const ReportIssueScreen({super.key});
@@ -14,6 +18,10 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
+  
+  // Optional photo attachment
+  XFile? _attachedPhoto;
+  final ImagePicker _picker = ImagePicker();
   
   String _selectedCategory = 'כללי';
   String _selectedPriority = 'רגיל';
@@ -56,11 +64,64 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
     });
 
     try {
-      final user = AuthService.currentUser!;
-      final buildingContext = BuildingContextService.currentBuilding!;
+      final user = AuthService.currentUser;
+      final buildingContext = BuildingContextService.currentBuilding;
       
-      // Simulate issue submission
-      await Future.delayed(const Duration(seconds: 2));
+      // Check for required data
+      if (user == null) {
+        throw Exception('משתמש לא מחובר');
+      }
+      
+      if (buildingContext == null) {
+        throw Exception('לא נמצא הקשר לבניין');
+      }
+      
+      final buildingId = buildingContext.buildingId;
+      final unitId = user.getResidentUnit(buildingId) ?? '';
+      
+      // 1) Create issue document in Firestore
+      final issuesCol = FirebaseFirestore.instance
+          .collection('buildings')
+          .doc(buildingId)
+          .collection('issues');
+
+      final issueDoc = await issuesCol.add({
+        'title': _titleController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'location': _locationController.text.trim(),
+        'category': _selectedCategory,
+        'priority': _selectedPriority,
+        'residentId': user.id,
+        'residentName': user.name,
+        'residentEmail': user.email,
+        'unitId': unitId,
+        'status': 'open',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      String? photoUrl;
+
+      // 2) If photo attached, upload to Storage and save URL
+      if (_attachedPhoto != null) {
+        final storage = FirebaseStorage.instance;
+        final fileName = '${DateTime.now().millisecondsSinceEpoch}_${_attachedPhoto!.name}';
+        final ref = storage.ref('buildings/$buildingId/issues/${issueDoc.id}/attachments/$fileName');
+        final data = await _attachedPhoto!.readAsBytes();
+        final meta = SettableMetadata(contentType: 'image/jpeg');
+        await ref.putData(data, meta);
+        photoUrl = await ref.getDownloadURL();
+
+        await issueDoc.collection('attachments').add({
+          'url': photoUrl,
+          'type': 'image',
+          'uploadedAt': FieldValue.serverTimestamp(),
+          'uploadedBy': user.id,
+        });
+
+        // Also store top-level field for quick preview
+        await issueDoc.update({'previewImageUrl': photoUrl});
+      }
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -118,12 +179,30 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = AuthService.currentUser!;
+    final user = AuthService.currentUser;
     final buildingContext = BuildingContextService.currentBuilding;
-    final unitId = user.getResidentUnit(buildingContext?.buildingId ?? '') ?? 'לא ידוע';
+    final unitId = user?.getResidentUnit(buildingContext?.buildingId ?? '') ?? 'לא ידוע';
+    
+    // Handle case where user is not authenticated
+    if (user == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('דיווח על תקלה'),
+          backgroundColor: Colors.orange,
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(
+          child: Text('שגיאה: משתמש לא מחובר'),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: const Text('דיווח על תקלה חדשה'),
         backgroundColor: Colors.orange,
         foregroundColor: Colors.white,
@@ -165,6 +244,68 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
               ),
               const SizedBox(height: 20),
 
+              // Photo attachment (optional)
+              Text(
+                'תמונה (אופציונלי)',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _isSubmitting
+                        ? null
+                        : () async {
+                            final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 75, maxWidth: 1920, maxHeight: 1080);
+                            if (picked != null) {
+                              setState(() => _attachedPhoto = picked);
+                            }
+                          },
+                    icon: const Icon(Icons.photo),
+                    label: const Text('בחר תמונה'),
+                  ),
+                  const SizedBox(width: 12),
+                  OutlinedButton.icon(
+                    onPressed: _isSubmitting
+                        ? null
+                        : () async {
+                            final picked = await _picker.pickImage(source: ImageSource.camera, imageQuality: 75, maxWidth: 1920, maxHeight: 1080);
+                            if (picked != null) {
+                              setState(() => _attachedPhoto = picked);
+                            }
+                          },
+                    icon: const Icon(Icons.photo_camera),
+                    label: const Text('מצלמה'),
+                  ),
+                ],
+              ),
+              if (_attachedPhoto != null) ...[
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: FutureBuilder<Uint8List>(
+                    future: _attachedPhoto!.readAsBytes(),
+                    builder: (context, snap) {
+                      if (!snap.hasData) {
+                        return const SizedBox(
+                          height: 140,
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      return Image.memory(
+                        snap.data!,
+                        height: 140,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      );
+                    },
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+
               // Category selection
               Text(
                 'קטגוריה',
@@ -179,7 +320,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                   prefixIcon: Icon(_getCategoryIcon(_selectedCategory)),
                   border: const OutlineInputBorder(),
                 ),
-                items: _categories.map((category) => DropdownMenuItem(
+                items: _categories.map((category) => DropdownMenuItem<String>(
                   value: category,
                   child: Row(
                     children: [
@@ -190,8 +331,9 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                   ),
                 )).toList(),
                 onChanged: (value) {
+                  if (value == null) return;
                   setState(() {
-                    _selectedCategory = value!;
+                    _selectedCategory = value;
                   });
                 },
               ),
@@ -211,7 +353,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                   prefixIcon: Icon(Icons.priority_high, color: _getPriorityColor(_selectedPriority)),
                   border: const OutlineInputBorder(),
                 ),
-                items: _priorities.map((priority) => DropdownMenuItem(
+                items: _priorities.map((priority) => DropdownMenuItem<String>(
                   value: priority,
                   child: Row(
                     children: [
@@ -222,8 +364,9 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
                   ),
                 )).toList(),
                 onChanged: (value) {
+                  if (value == null) return;
                   setState(() {
-                    _selectedPriority = value!;
+                    _selectedPriority = value;
                   });
                 },
               ),

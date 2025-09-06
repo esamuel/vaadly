@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/services/auth_service.dart';
+import '../../core/widgets/auth_wrapper.dart';
 import 'app_owner_auth_screen.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -38,8 +39,11 @@ class _AuthScreenState extends State<AuthScreen> {
       );
 
       if (user != null && mounted) {
-        // Navigate to appropriate dashboard based on user role
-        Navigator.of(context).pushReplacementNamed('/dashboard');
+        // Route back into the AuthWrapper which decides the correct dashboard
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AuthWrapper()),
+          (route) => false,
+        );
       }
     } catch (e) {
       setState(() {

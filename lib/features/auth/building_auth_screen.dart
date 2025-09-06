@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/building_context_service.dart';
 import '../../core/models/building_context.dart';
-import '../dashboards/resident_dashboard.dart';
-import '../dashboards/committee_dashboard.dart';
 
 class BuildingAuthScreen extends StatefulWidget {
   final String buildingCode;
@@ -78,21 +76,9 @@ class _BuildingAuthScreenState extends State<BuildingAuthScreen> {
           return;
         }
 
-        // Navigate to appropriate dashboard based on user role
-        if (user.isBuildingCommittee && user.canManageBuilding(_buildingContext!.buildingId)) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const CommitteeDashboard()),
-          );
-        } else if (user.isResident) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const ResidentDashboard()),
-          );
-        } else {
-          await AuthService.signOut();
-          setState(() {
-            _errorMessage = 'Invalid access level for this building';
-          });
-        }
+        // Let AuthWrapper handle routing to appropriate dashboard based on user role
+        // Just trigger a rebuild by setting state
+        setState(() {});
       }
     } catch (e) {
       setState(() {

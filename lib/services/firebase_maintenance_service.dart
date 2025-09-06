@@ -4,6 +4,19 @@ import '../core/models/maintenance_request.dart';
 class FirebaseMaintenanceService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   
+  // Stream maintenance requests for a building
+  static Stream<List<MaintenanceRequest>> streamMaintenanceRequests(String buildingId) {
+    return _firestore
+        .collection('buildings')
+        .doc(buildingId)
+        .collection('maintenance_requests')
+        .orderBy('reportedAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((doc) => MaintenanceRequest.fromMap({...doc.data(), 'id': doc.id}))
+            .toList());
+  }
+
   // Get all maintenance requests for a building
   static Future<List<MaintenanceRequest>> getMaintenanceRequests(String buildingId) async {
     try {

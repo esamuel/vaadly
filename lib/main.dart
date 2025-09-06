@@ -4,6 +4,7 @@ import 'firebase_options.dart';
 import 'core/widgets/auth_wrapper.dart';
 import 'services/multi_tenant_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 
 void main() async {
@@ -46,6 +47,8 @@ class VaadlyMainApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorSchemeSeed: Colors.indigo,
+        textTheme: GoogleFonts.notoSansHebrewTextTheme(),
+        fontFamily: GoogleFonts.notoSansHebrew().fontFamily,
         appBarTheme: const AppBarTheme(
           centerTitle: true,
           elevation: 2,

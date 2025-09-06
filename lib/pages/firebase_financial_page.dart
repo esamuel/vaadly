@@ -384,7 +384,8 @@ class _FirebaseFinancialPageState extends State<FirebaseFinancialPage>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      // Extra bottom padding so the last item doesn't get overlapped by FAB
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
       itemCount: _invoices.length,
       itemBuilder: (context, index) {
         final invoice = _invoices[index];
@@ -419,6 +420,7 @@ class _FirebaseFinancialPageState extends State<FirebaseFinancialPage>
             trailing: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   '₪${invoice.total.toStringAsFixed(0)}',
@@ -514,7 +516,8 @@ class _FirebaseFinancialPageState extends State<FirebaseFinancialPage>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      // Extra bottom padding so the last item doesn't get overlapped by FAB
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
       itemCount: _expenses.length,
       itemBuilder: (context, index) {
         final expense = _expenses[index];
@@ -551,6 +554,7 @@ class _FirebaseFinancialPageState extends State<FirebaseFinancialPage>
             trailing: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   '₪${expense.amount.toStringAsFixed(0)}',
