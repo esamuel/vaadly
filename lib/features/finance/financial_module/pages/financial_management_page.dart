@@ -4,6 +4,7 @@ import 'package:vaadly/services/firebase_building_service.dart';
 import 'package:vaadly/core/models/invoice.dart';
 import 'package:vaadly/core/models/expense.dart';
 import 'package:vaadly/core/models/building.dart';
+import 'package:vaadly/services/firebase_financial_service.dart';
 
 class FinancialManagementPage extends StatefulWidget {
   const FinancialManagementPage({super.key});
@@ -54,18 +55,23 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
     }
   }
 
-  void _loadFinancialData() {
-    if (_selectedBuildingId != null) {
-      setState(() {
-        _invoices =
-            FinancialService.getInvoicesByBuilding(_selectedBuildingId!);
-        _expenses =
-            FinancialService.getExpensesByBuilding(_selectedBuildingId!);
-        _buildingStats = FinancialService.getBuildingFinancialStatistics(
-            _selectedBuildingId!);
-        _overallStats = FinancialService.getOverallFinancialStatistics();
-      });
+  Future<void> _loadFinancialData() async {
+    if (_selectedBuildingId == null) {
+      return;
     }
+    final buildingId = _selectedBuildingId!;
+    final invoices =
+        await FirebaseFinancialService.getInvoicesByBuilding(buildingId);
+    final expenses =
+        await FirebaseFinancialService.getExpensesByBuilding(buildingId);
+    final stats =
+        await FirebaseFinancialService.getFinancialStatistics(buildingId);
+    setState(() {
+      _invoices = invoices;
+      _expenses = expenses;
+      _buildingStats = stats;
+      _overallStats = stats;
+    });
   }
 
   void _onBuildingChanged(String? buildingId) {
@@ -97,24 +103,6 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
         ),
         body: Column(
           children: [
-            // Debug info display
-            Container(
-              width: double.infinity,
-              color: Colors.yellow[100],
-              padding: const EdgeInsets.all(8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('🐛 Debug Info:',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  Text('Buildings: ${_buildings.length}'),
-                  Text('Invoices: ${_invoices.length}'),
-                  Text('Expenses: ${_expenses.length}'),
-                  Text('Building Stats: ${_buildingStats.length}'),
-                  Text('Overall Stats: ${_overallStats.length}'),
-                ],
-              ),
-            ),
             // Building selector
             Padding(
               padding: const EdgeInsets.all(16),
@@ -158,10 +146,6 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
   }
 
   Widget _buildStatisticsTab() {
-    // Debug info
-    print('📊 Building stats: $_buildingStats');
-    print('📊 Overall stats: $_overallStats');
-
     if (_buildingStats.isEmpty) {
       return Center(
         child: Column(
@@ -327,7 +311,7 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
                     Expanded(
                       child: _buildStatCard(
                         'חשבוניות',
-                        '${_overallStats['totalInvoices']}',
+                        '${_overallStats['invoiceCount'] ?? _overallStats['totalInvoices'] ?? 0}',
                         Colors.blue,
                         Icons.receipt_long,
                       ),
@@ -336,7 +320,7 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
                     Expanded(
                       child: _buildStatCard(
                         'הוצאות',
-                        '${_overallStats['totalExpenses']}',
+                        '${_overallStats['expenseCount'] ?? _overallStats['totalExpenses'] ?? 0}',
                         Colors.red,
                         Icons.payments,
                       ),
@@ -349,7 +333,7 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
                     Expanded(
                       child: _buildStatCard(
                         'בפיגור',
-                        '${_overallStats['overdueInvoices']}',
+                        '${_overallStats['overdueInvoices'] ?? 0}',
                         Colors.orange,
                         Icons.warning,
                       ),
@@ -358,7 +342,7 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
                     Expanded(
                       child: _buildStatCard(
                         'ממתין אישור',
-                        '${_overallStats['pendingExpenses']}',
+                        '${_overallStats['pendingExpenseCount'] ?? _overallStats['pendingExpenses'] ?? 0}',
                         Colors.yellow,
                         Icons.pending,
                       ),
@@ -708,7 +692,8 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
                         border: OutlineInputBorder(),
                         prefixText: '₪ ',
                       ),
-                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      keyboardType:
+                          TextInputType.numberWithOptions(decimal: true),
                       validator: (value) {
                         if (value?.isEmpty ?? true) {
                           return 'נא להזין סכום';
@@ -751,7 +736,8 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
                     const SizedBox(height: 16),
                     ListTile(
                       title: const Text('תאריך'),
-                      subtitle: Text('${selectedDate.day}/${selectedDate.month}/${selectedDate.year}'),
+                      subtitle: Text(
+                          '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}'),
                       trailing: const Icon(Icons.calendar_today),
                       onTap: () async {
                         final picked = await showDatePicker(
@@ -846,7 +832,8 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
                         border: OutlineInputBorder(),
                         prefixText: '₪ ',
                       ),
-                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      keyboardType:
+                          TextInputType.numberWithOptions(decimal: true),
                       validator: (value) {
                         if (value?.isEmpty ?? true) {
                           return 'נא להזין סכום';
@@ -902,7 +889,8 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
                     const SizedBox(height: 16),
                     ListTile(
                       title: const Text('תאריך'),
-                      subtitle: Text('${selectedDate.day}/${selectedDate.month}/${selectedDate.year}'),
+                      subtitle: Text(
+                          '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}'),
                       trailing: const Icon(Icons.calendar_today),
                       onTap: () async {
                         final picked = await showDatePicker(
@@ -935,7 +923,9 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
                     category: selectedCategory,
                     amount: double.parse(amountController.text),
                     description: descriptionController.text,
-                    vendor: vendorController.text.isEmpty ? null : vendorController.text,
+                    vendor: vendorController.text.isEmpty
+                        ? null
+                        : vendorController.text,
                     priority: selectedPriority,
                     date: selectedDate,
                   );
@@ -956,7 +946,7 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
     required String description,
     required String recipient,
     required DateTime date,
-  }) {
+  }) async {
     if (_selectedBuildingId == null) return;
 
     final invoiceItem = InvoiceItem(
@@ -982,9 +972,8 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
       updatedAt: DateTime.now(),
     );
 
-    // TODO: Save to Firebase instead of just local service
-    FinancialService.addInvoice(invoice);
-    
+    await FirebaseFinancialService.addInvoice(_selectedBuildingId!, invoice);
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('חשבונית נוצרה בהצלחה'),
@@ -1002,7 +991,7 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
     String? vendor,
     required ExpensePriority priority,
     required DateTime date,
-  }) {
+  }) async {
     if (_selectedBuildingId == null) return;
 
     final expense = Expense(
@@ -1011,7 +1000,7 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
       title: description,
       description: description,
       category: category,
-      status: amount <= 2000 ? ExpenseStatus.approved : ExpenseStatus.pending, // Auto-approve small expenses
+      status: amount <= 2000 ? ExpenseStatus.approved : ExpenseStatus.pending,
       priority: priority,
       amount: amount,
       vendorName: vendor,
@@ -1022,12 +1011,13 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
       updatedAt: DateTime.now(),
     );
 
-    // TODO: Save to Firebase instead of just local service
-    FinancialService.addExpense(expense);
-    
+    await FirebaseFinancialService.addExpense(_selectedBuildingId!, expense);
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(amount <= 2000 ? 'הוצאה נוצרה ואושרה אוטומטית' : 'הוצאה נוצרה ומחכה לאישור'),
+        content: Text(amount <= 2000
+            ? 'הוצאה נוצרה ואושרה אוטומטית'
+            : 'הוצאה נוצרה ומחכה לאישור'),
         backgroundColor: Colors.green,
       ),
     );

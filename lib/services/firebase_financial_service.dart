@@ -4,7 +4,7 @@ import '../core/models/expense.dart';
 
 class FirebaseFinancialService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+
   // Invoice operations
   static Future<List<Invoice>> getInvoicesByBuilding(String buildingId) async {
     try {
@@ -14,7 +14,7 @@ class FirebaseFinancialService {
           .collection('invoices')
           .orderBy('issueDate', descending: true)
           .get();
-      
+
       return snapshot.docs.map((doc) {
         final data = doc.data();
         return Invoice.fromMap({...data, 'id': doc.id});
@@ -27,12 +27,22 @@ class FirebaseFinancialService {
 
   static Future<String?> addInvoice(String buildingId, Invoice invoice) async {
     try {
-      final docRef = await _firestore
+      final idempotencyKey = invoice.invoiceNumber;
+      final coll = _firestore
           .collection('buildings')
           .doc(buildingId)
-          .collection('invoices')
-          .add(invoice.toMap());
-      
+          .collection('invoices');
+      if (idempotencyKey.isNotEmpty) {
+        final existing = await coll
+            .where('invoiceNumber', isEqualTo: idempotencyKey)
+            .limit(1)
+            .get();
+        if (existing.docs.isNotEmpty) {
+          return existing.docs.first.id; // already exists
+        }
+      }
+      final docRef = await coll.add(invoice.toMap());
+
       print('✅ Invoice added with ID: ${docRef.id}');
       return docRef.id;
     } catch (e) {
@@ -41,7 +51,8 @@ class FirebaseFinancialService {
     }
   }
 
-  static Future<bool> updateInvoice(String buildingId, String invoiceId, Invoice invoice) async {
+  static Future<bool> updateInvoice(
+      String buildingId, String invoiceId, Invoice invoice) async {
     try {
       await _firestore
           .collection('buildings')
@@ -49,7 +60,7 @@ class FirebaseFinancialService {
           .collection('invoices')
           .doc(invoiceId)
           .update(invoice.toMap());
-      
+
       print('✅ Invoice updated');
       return true;
     } catch (e) {
@@ -66,7 +77,7 @@ class FirebaseFinancialService {
           .collection('invoices')
           .doc(invoiceId)
           .delete();
-      
+
       print('✅ Invoice deleted');
       return true;
     } catch (e) {
@@ -84,7 +95,7 @@ class FirebaseFinancialService {
           .collection('expenses')
           .orderBy('expenseDate', descending: true)
           .get();
-      
+
       return snapshot.docs.map((doc) {
         final data = doc.data();
         return Expense.fromMap({...data, 'id': doc.id});
@@ -97,12 +108,24 @@ class FirebaseFinancialService {
 
   static Future<String?> addExpense(String buildingId, Expense expense) async {
     try {
-      final docRef = await _firestore
+      final key =
+          '${expense.title}_${expense.amount}_${expense.expenseDate.toIso8601String()}';
+      final coll = _firestore
           .collection('buildings')
           .doc(buildingId)
-          .collection('expenses')
-          .add(expense.toMap());
-      
+          .collection('expenses');
+      final existing = await coll
+          .where('title', isEqualTo: expense.title)
+          .where('amount', isEqualTo: expense.amount)
+          .where('expenseDate',
+              isEqualTo: expense.expenseDate.toIso8601String())
+          .limit(1)
+          .get();
+      if (existing.docs.isNotEmpty) {
+        return existing.docs.first.id;
+      }
+      final docRef = await coll.add(expense.toMap());
+
       print('✅ Expense added with ID: ${docRef.id}');
       return docRef.id;
     } catch (e) {
@@ -111,7 +134,8 @@ class FirebaseFinancialService {
     }
   }
 
-  static Future<bool> updateExpense(String buildingId, String expenseId, Expense expense) async {
+  static Future<bool> updateExpense(
+      String buildingId, String expenseId, Expense expense) async {
     try {
       await _firestore
           .collection('buildings')
@@ -119,7 +143,7 @@ class FirebaseFinancialService {
           .collection('expenses')
           .doc(expenseId)
           .update(expense.toMap());
-      
+
       print('✅ Expense updated');
       return true;
     } catch (e) {
@@ -136,7 +160,7 @@ class FirebaseFinancialService {
           .collection('expenses')
           .doc(expenseId)
           .delete();
-      
+
       print('✅ Expense deleted');
       return true;
     } catch (e) {
@@ -146,7 +170,12 @@ class FirebaseFinancialService {
   }
 
   // Status update methods
-  static Future<bool> markInvoiceAsPaid(String buildingId, String invoiceId, PaymentMethod paymentMethod, String paymentReference, double amountPaid) async {
+  static Future<bool> markInvoiceAsPaid(
+      String buildingId,
+      String invoiceId,
+      PaymentMethod paymentMethod,
+      String paymentReference,
+      double amountPaid) async {
     try {
       await _firestore
           .collection('buildings')
@@ -161,7 +190,7 @@ class FirebaseFinancialService {
         'amountPaid': amountPaid,
         'updatedAt': DateTime.now().toIso8601String(),
       });
-      
+
       print('✅ Invoice marked as paid');
       return true;
     } catch (e) {
@@ -170,7 +199,8 @@ class FirebaseFinancialService {
     }
   }
 
-  static Future<bool> approveExpense(String buildingId, String expenseId, String approvedBy, double? approvedAmount) async {
+  static Future<bool> approveExpense(String buildingId, String expenseId,
+      String approvedBy, double? approvedAmount) async {
     try {
       await _firestore
           .collection('buildings')
@@ -184,7 +214,7 @@ class FirebaseFinancialService {
         'approvedAmount': approvedAmount,
         'updatedAt': DateTime.now().toIso8601String(),
       });
-      
+
       print('✅ Expense approved');
       return true;
     } catch (e) {
@@ -193,7 +223,8 @@ class FirebaseFinancialService {
     }
   }
 
-  static Future<bool> markExpenseAsPaid(String buildingId, String expenseId, String paymentMethod, String paymentReference) async {
+  static Future<bool> markExpenseAsPaid(String buildingId, String expenseId,
+      String paymentMethod, String paymentReference) async {
     try {
       await _firestore
           .collection('buildings')
@@ -207,7 +238,7 @@ class FirebaseFinancialService {
         'paymentReference': paymentReference,
         'updatedAt': DateTime.now().toIso8601String(),
       });
-      
+
       print('✅ Expense marked as paid');
       return true;
     } catch (e) {
@@ -217,39 +248,58 @@ class FirebaseFinancialService {
   }
 
   // Statistics
-  static Future<Map<String, dynamic>> getFinancialStatistics(String buildingId) async {
+  static Future<Map<String, dynamic>> getFinancialStatistics(
+      String buildingId) async {
     try {
       final invoices = await getInvoicesByBuilding(buildingId);
       final expenses = await getExpensesByBuilding(buildingId);
-      
+
       // Invoice calculations
-      final totalInvoiced = invoices.fold<double>(0, (sum, invoice) => sum + invoice.total);
-      final totalPaid = invoices.where((i) => i.isPaid).fold<double>(0, (sum, invoice) => sum + invoice.total);
-      final totalOutstanding = invoices.where((i) => !i.isPaid).fold<double>(0, (sum, invoice) => sum + invoice.outstandingAmount);
-      final overdueAmount = invoices.where((i) => i.isOverdue).fold<double>(0, (sum, invoice) => sum + invoice.total);
-      
+      final totalInvoiced =
+          invoices.fold<double>(0, (sum, invoice) => sum + invoice.total);
+      final totalPaid = invoices
+          .where((i) => i.isPaid)
+          .fold<double>(0, (sum, invoice) => sum + invoice.total);
+      final totalOutstanding = invoices
+          .where((i) => !i.isPaid)
+          .fold<double>(0, (sum, invoice) => sum + invoice.outstandingAmount);
+      final overdueAmount = invoices
+          .where((i) => i.isOverdue)
+          .fold<double>(0, (sum, invoice) => sum + invoice.total);
+
       // Expense calculations
-      final totalExpenses = expenses.fold<double>(0, (sum, expense) => sum + expense.amount);
-      final totalApprovedExpenses = expenses.where((e) => e.isApproved).fold<double>(0, (sum, expense) => sum + (expense.approvedAmount ?? expense.amount));
-      final totalPaidExpenses = expenses.where((e) => e.isPaid).fold<double>(0, (sum, expense) => sum + expense.amount);
-      final pendingExpenseAmount = expenses.where((e) => e.isPending).fold<double>(0, (sum, expense) => sum + expense.amount);
-      
+      final totalExpenses =
+          expenses.fold<double>(0, (sum, expense) => sum + expense.amount);
+      final totalApprovedExpenses = expenses
+          .where((e) => e.isApproved)
+          .fold<double>(
+              0,
+              (sum, expense) =>
+                  sum + (expense.approvedAmount ?? expense.amount));
+      final totalPaidExpenses = expenses
+          .where((e) => e.isPaid)
+          .fold<double>(0, (sum, expense) => sum + expense.amount);
+      final pendingExpenseAmount = expenses
+          .where((e) => e.isPending)
+          .fold<double>(0, (sum, expense) => sum + expense.amount);
+
       // Net income
       final netIncome = totalPaid - totalPaidExpenses;
-      
+
       // Category breakdowns
       final invoiceTypeBreakdown = <String, int>{};
       for (final invoice in invoices) {
         final type = invoice.typeDisplay;
         invoiceTypeBreakdown[type] = (invoiceTypeBreakdown[type] ?? 0) + 1;
       }
-      
+
       final expenseCategoryBreakdown = <String, int>{};
       for (final expense in expenses) {
         final category = expense.categoryDisplay;
-        expenseCategoryBreakdown[category] = (expenseCategoryBreakdown[category] ?? 0) + 1;
+        expenseCategoryBreakdown[category] =
+            (expenseCategoryBreakdown[category] ?? 0) + 1;
       }
-      
+
       return {
         'totalInvoiced': totalInvoiced,
         'totalPaid': totalPaid,
@@ -260,7 +310,9 @@ class FirebaseFinancialService {
         'totalPaidExpenses': totalPaidExpenses,
         'pendingExpenses': pendingExpenseAmount,
         'netIncome': netIncome,
-        'profitMargin': totalPaid > 0 ? ((netIncome / totalPaid) * 100).toStringAsFixed(1) : '0.0',
+        'profitMargin': totalPaid > 0
+            ? ((netIncome / totalPaid) * 100).toStringAsFixed(1)
+            : '0.0',
         'invoiceCount': invoices.length,
         'expenseCount': expenses.length,
         'overdueInvoices': invoices.where((i) => i.isOverdue).length,
@@ -297,21 +349,22 @@ class FirebaseFinancialService {
       // Check if data already exists
       final existingInvoices = await getInvoicesByBuilding(buildingId);
       if (existingInvoices.isNotEmpty) {
-        print('✅ Sample financial data already exists for building $buildingId');
+        print(
+            '✅ Sample financial data already exists for building $buildingId');
         return;
       }
 
       final sampleInvoices = _generateSampleInvoices(buildingId);
       final sampleExpenses = _generateSampleExpenses(buildingId);
-      
+
       for (final invoice in sampleInvoices) {
         await addInvoice(buildingId, invoice);
       }
-      
+
       for (final expense in sampleExpenses) {
         await addExpense(buildingId, expense);
       }
-      
+
       print('✅ Sample financial data initialized for building $buildingId');
     } catch (e) {
       print('❌ Error initializing sample financial data: $e');
@@ -321,7 +374,7 @@ class FirebaseFinancialService {
   // Generate sample invoices
   static List<Invoice> _generateSampleInvoices(String buildingId) {
     final now = DateTime.now();
-    
+
     return [
       Invoice(
         id: '',
@@ -356,7 +409,6 @@ class FirebaseFinancialService {
         createdAt: now.subtract(const Duration(days: 10)),
         updatedAt: now.subtract(const Duration(days: 10)),
       ),
-
       Invoice(
         id: '',
         buildingId: buildingId,
@@ -387,7 +439,6 @@ class FirebaseFinancialService {
         createdAt: now.subtract(const Duration(days: 45)),
         updatedAt: now.subtract(const Duration(days: 20)),
       ),
-
       Invoice(
         id: '',
         buildingId: buildingId,
@@ -414,7 +465,6 @@ class FirebaseFinancialService {
         createdAt: now.subtract(const Duration(days: 60)),
         updatedAt: now.subtract(const Duration(days: 60)),
       ),
-
       Invoice(
         id: '',
         buildingId: buildingId,
@@ -447,7 +497,7 @@ class FirebaseFinancialService {
   // Generate sample expenses
   static List<Expense> _generateSampleExpenses(String buildingId) {
     final now = DateTime.now();
-    
+
     return [
       Expense(
         id: '',
@@ -469,7 +519,6 @@ class FirebaseFinancialService {
         createdAt: now.subtract(const Duration(days: 7)),
         updatedAt: now.subtract(const Duration(days: 3)),
       ),
-
       Expense(
         id: '',
         buildingId: buildingId,
@@ -493,7 +542,6 @@ class FirebaseFinancialService {
         createdAt: now.subtract(const Duration(days: 25)),
         updatedAt: now.subtract(const Duration(days: 8)),
       ),
-
       Expense(
         id: '',
         buildingId: buildingId,
@@ -511,7 +559,6 @@ class FirebaseFinancialService {
         createdAt: now.subtract(const Duration(days: 5)),
         updatedAt: now.subtract(const Duration(days: 5)),
       ),
-
       Expense(
         id: '',
         buildingId: buildingId,
