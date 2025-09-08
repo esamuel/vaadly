@@ -7,7 +7,6 @@ import '../core/models/payment.dart';
 import '../core/models/lease.dart';
 import '../core/models/resident.dart';
 import '../core/services/firebase_service.dart';
-import '../services/firebase_resident_service.dart';
 
 enum NotificationType {
   paymentReminder, // תזכורת תשלום
@@ -23,12 +22,15 @@ class NotificationService {
   // Email configuration - in production, these should come from Firebase Remote Config
   static const String _smtpHost = 'smtp.gmail.com';
   static const int _smtpPort = 587;
-  static const String _senderEmail = 'vaadly@gmail.com'; // Replace with your email
-  static const String _senderPassword = 'your_app_password_here'; // Replace with app password
+  static const String _senderEmail =
+      'vaadly@gmail.com'; // Replace with your email
+  static const String _senderPassword =
+      'your_app_password_here'; // Replace with app password
   static const String _senderName = 'Vaadly - ניהול נכסים';
 
   // WhatsApp Business API configuration (optional)
-  static const String _whatsappApiUrl = 'https://graph.facebook.com/v18.0/YOUR_PHONE_NUMBER_ID/messages';
+  static const String _whatsappApiUrl =
+      'https://graph.facebook.com/v18.0/YOUR_PHONE_NUMBER_ID/messages';
   static const String _whatsappToken = 'YOUR_WHATSAPP_TOKEN';
 
   /// Initialize notification service
@@ -50,7 +52,7 @@ class NotificationService {
     try {
       final resident = await _getResidentInfo(payment.residentId);
       final subject = 'תזכורת תשלום - ${payment.title}';
-      
+
       final htmlBody = _buildPaymentReminderHtml(
         payment: payment,
         residentName: resident?.fullName ?? recipientName ?? 'שוכר יקר',
@@ -85,7 +87,7 @@ class NotificationService {
       final resident = await _getResidentInfo(payment.residentId);
       final subject = '⚠️ תשלום באיחור - ${payment.title}';
       final daysOverdue = DateTime.now().difference(payment.dueDate).inDays;
-      
+
       final htmlBody = _buildOverduePaymentHtml(
         payment: payment,
         residentName: resident?.fullName ?? recipientName ?? 'שוכר יקר',
@@ -120,7 +122,7 @@ class NotificationService {
     try {
       final resident = await _getResidentInfo(payment.residentId);
       final subject = '✅ תשלום התקבל - ${payment.title}';
-      
+
       final htmlBody = _buildPaymentConfirmationHtml(
         payment: payment,
         residentName: resident?.fullName ?? recipientName ?? 'שוכר יקר',
@@ -153,7 +155,7 @@ class NotificationService {
       final resident = await _getResidentInfo(lease.tenantId);
       const subject = '📋 התראה: חוזה השכירות פג תוקף בקרוב';
       final daysUntilExpiry = lease.endDate.difference(DateTime.now()).inDays;
-      
+
       final htmlBody = _buildLeaseExpirationHtml(
         lease: lease,
         residentName: resident?.fullName ?? recipientName ?? 'שוכר יקר',
@@ -180,12 +182,14 @@ class NotificationService {
   }
 
   /// Send bulk notifications to all overdue payments
-  static Future<List<bool>> sendBulkOverdueNotifications(List<Payment> overduePayments) async {
+  static Future<List<bool>> sendBulkOverdueNotifications(
+      List<Payment> overduePayments) async {
     try {
-      print('📧 Sending bulk overdue notifications to ${overduePayments.length} payments...');
-      
+      print(
+          '📧 Sending bulk overdue notifications to ${overduePayments.length} payments...');
+
       final results = <bool>[];
-      
+
       for (final payment in overduePayments) {
         if (payment.residentId != null) {
           final resident = await _getResidentInfo(payment.residentId);
@@ -196,7 +200,7 @@ class NotificationService {
               recipientName: resident.fullName,
             );
             results.add(success);
-            
+
             // Add delay between emails to avoid spam detection
             await Future.delayed(const Duration(seconds: 2));
           } else {
@@ -206,10 +210,11 @@ class NotificationService {
           results.add(false);
         }
       }
-      
+
       final successCount = results.where((r) => r).length;
-      print('✅ Sent $successCount/${overduePayments.length} overdue notifications');
-      
+      print(
+          '✅ Sent $successCount/${overduePayments.length} overdue notifications');
+
       return results;
     } catch (e) {
       print('❌ Error sending bulk overdue notifications: $e');
@@ -221,24 +226,37 @@ class NotificationService {
   static Future<void> scheduleAutomaticReminders(String buildingId) async {
     try {
       print('⏰ Scheduling automatic reminders for building $buildingId...');
-      
+
       // In a real app, this would integrate with a job scheduler like Firebase Functions
       // For now, we'll create the logic that would be called by a cron job
-      
+
       final reminderConfig = {
         'buildingId': buildingId,
         'enabled': true,
-        'reminderDaysBefore': [7, 3, 1], // Send reminders 7, 3, and 1 days before due date
-        'overdueReminderDays': [1, 7, 14], // Send overdue notices 1, 7, and 14 days after due date
-        'leaseExpirationDays': [90, 60, 30, 14], // Send lease expiration notices
+        'reminderDaysBefore': [
+          7,
+          3,
+          1
+        ], // Send reminders 7, 3, and 1 days before due date
+        'overdueReminderDays': [
+          1,
+          7,
+          14
+        ], // Send overdue notices 1, 7, and 14 days after due date
+        'leaseExpirationDays': [
+          90,
+          60,
+          30,
+          14
+        ], // Send lease expiration notices
         'createdAt': FieldValue.serverTimestamp(),
       };
-      
+
       await FirebaseService.addDocument(
         'buildings/$buildingId/notification_config',
         reminderConfig,
       );
-      
+
       print('✅ Automatic reminders scheduled');
     } catch (e) {
       print('❌ Error scheduling automatic reminders: $e');
@@ -255,7 +273,7 @@ class NotificationService {
         'Authorization': 'Bearer $_whatsappToken',
         'Content-Type': 'application/json',
       };
-      
+
       final body = {
         'messaging_product': 'whatsapp',
         'to': phoneNumber,
@@ -264,13 +282,13 @@ class NotificationService {
           'body': message,
         },
       };
-      
+
       final response = await http.post(
         Uri.parse(_whatsappApiUrl),
         headers: headers,
         body: json.encode(body),
       );
-      
+
       if (response.statusCode == 200) {
         print('✅ WhatsApp message sent successfully');
         return true;
@@ -294,20 +312,20 @@ class NotificationService {
   }) async {
     try {
       final smtpServer = gmail(_senderEmail, _senderPassword);
-      
+
       final message = Message()
         ..from = const Address(_senderEmail, _senderName)
         ..recipients.add(to)
         ..subject = subject
         ..text = plainBody
         ..html = htmlBody;
-      
+
       if (priority) {
         message.headers['X-Priority'] = '1';
         message.headers['X-MSMail-Priority'] = 'High';
         message.headers['Importance'] = 'High';
       }
-      
+
       final sendReport = await send(message, smtpServer);
       print('✅ Email sent to $to: ${sendReport.toString()}');
       return true;
@@ -319,7 +337,7 @@ class NotificationService {
 
   static Future<Resident?> _getResidentInfo(String? residentId) async {
     if (residentId == null) return null;
-    
+
     try {
       // This would need to be implemented based on your resident service
       // For now, return null and use fallback name
@@ -336,12 +354,12 @@ class NotificationService {
     required String residentName,
     required int daysUntilDue,
   }) {
-    final dueText = daysUntilDue > 0 
+    final dueText = daysUntilDue > 0
         ? 'בעוד $daysUntilDue ימים'
-        : daysUntilDue == 0 
-          ? 'היום'
-          : 'לפני ${-daysUntilDue} ימים';
-    
+        : daysUntilDue == 0
+            ? 'היום'
+            : 'לפני ${-daysUntilDue} ימים';
+
     return '''
 <!DOCTYPE html>
 <html dir="rtl" lang="he">
@@ -573,12 +591,12 @@ class NotificationService {
     required String residentName,
     required int daysUntilDue,
   }) {
-    final dueText = daysUntilDue > 0 
+    final dueText = daysUntilDue > 0
         ? 'בעוד $daysUntilDue ימים'
-        : daysUntilDue == 0 
-          ? 'היום'
-          : 'לפני ${-daysUntilDue} ימים';
-    
+        : daysUntilDue == 0
+            ? 'היום'
+            : 'לפני ${-daysUntilDue} ימים';
+
     return '''
 שלום $residentName,
 

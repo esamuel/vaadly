@@ -47,10 +47,12 @@ class _TestDashboardState extends State<TestDashboard> {
   Future<void> _loadBuildings() async {
     try {
       final snapshot = await _firestore.collection('buildings').get();
-      _buildings = snapshot.docs.map((doc) => {
-        'id': doc.id,
-        ...doc.data(),
-      }).toList();
+      _buildings = snapshot.docs
+          .map((doc) => {
+                'id': doc.id,
+                ...doc.data(),
+              })
+          .toList();
       print('✅ Loaded ${_buildings.length} buildings');
     } catch (e) {
       print('❌ Error loading buildings: $e');
@@ -76,9 +78,12 @@ class _TestDashboardState extends State<TestDashboard> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _buildStatCard('Buildings', _buildings.length.toString(), Icons.business, Colors.blue),
-                      _buildStatCard('Total Units', _getTotalUnits().toString(), Icons.apartment, Colors.green),
-                      _buildStatCard('Occupancy', '75%', Icons.people, Colors.orange),
+                      _buildStatCard('Buildings', _buildings.length.toString(),
+                          Icons.business, Colors.blue),
+                      _buildStatCard('Total Units', _getTotalUnits().toString(),
+                          Icons.apartment, Colors.green),
+                      _buildStatCard(
+                          'Occupancy', '75%', Icons.people, Colors.orange),
                     ],
                   ),
                 ),
@@ -89,10 +94,15 @@ class _TestDashboardState extends State<TestDashboard> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.business, size: 64, color: Colors.grey),
+                              Icon(Icons.business,
+                                  size: 64, color: Colors.grey),
                               SizedBox(height: 16),
-                              Text('No buildings found', style: TextStyle(fontSize: 18, color: Colors.grey)),
-                              Text('Add your first building to get started', style: TextStyle(fontSize: 14, color: Colors.grey)),
+                              Text('No buildings found',
+                                  style: TextStyle(
+                                      fontSize: 18, color: Colors.grey)),
+                              Text('Add your first building to get started',
+                                  style: TextStyle(
+                                      fontSize: 14, color: Colors.grey)),
                             ],
                           ),
                         )
@@ -106,11 +116,15 @@ class _TestDashboardState extends State<TestDashboard> {
                               child: ListTile(
                                 leading: const CircleAvatar(
                                   backgroundColor: Colors.blue,
-                                  child: Icon(Icons.business, color: Colors.white),
+                                  child:
+                                      Icon(Icons.business, color: Colors.white),
                                 ),
-                                title: Text(building['name'] ?? 'Unknown Building'),
-                                subtitle: Text(building['address'] ?? 'No address'),
-                                trailing: Text('${building['totalUnits'] ?? 0} units'),
+                                title: Text(
+                                    building['name'] ?? 'Unknown Building'),
+                                subtitle:
+                                    Text(building['address'] ?? 'No address'),
+                                trailing: Text(
+                                    '${building['totalUnits'] ?? 0} units'),
                               ),
                             );
                           },
@@ -128,7 +142,8 @@ class _TestDashboardState extends State<TestDashboard> {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -163,7 +178,8 @@ class _TestDashboardState extends State<TestDashboard> {
   }
 
   int _getTotalUnits() {
-    return _buildings.fold<int>(0, (sum, building) => sum + (building['totalUnits'] as int? ?? 0));
+    return _buildings.fold<int>(
+        0, (sum, building) => sum + (building['totalUnits'] as int? ?? 0));
   }
 
   Future<void> _addTestBuilding() async {
@@ -181,10 +197,10 @@ class _TestDashboardState extends State<TestDashboard> {
 
       await _firestore.collection('buildings').add(buildingData);
       print('✅ Test building added');
-      
+
       // Reload buildings
       _loadBuildings();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

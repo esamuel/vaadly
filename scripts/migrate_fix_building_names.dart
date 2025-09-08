@@ -23,7 +23,8 @@ const String kNewValue = 'בורלא 14';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform);
     await FirebaseService.initialize();
   } catch (e) {
     // ignore: avoid_print
@@ -118,7 +119,8 @@ class _MigrationScreenState extends State<_MigrationScreen> {
         }
       } catch (e) {
         usedFallback = true;
-        _append('⚠️ Filtered query failed (likely missing index). Falling back to scan-all...');
+        _append(
+            '⚠️ Filtered query failed (likely missing index). Falling back to scan-all...');
         final all = await firestore.collectionGroup('buildings').get();
         for (final doc in all.docs) {
           final data = doc.data();
@@ -130,7 +132,8 @@ class _MigrationScreenState extends State<_MigrationScreen> {
         }
       }
 
-      _append('📋 Found ${paths.length} building documents to examine${usedFallback ? ' (via scan-all fallback)' : ''}');
+      _append(
+          '📋 Found ${paths.length} building documents to examine${usedFallback ? ' (via scan-all fallback)' : ''}');
 
       for (final ref in paths.values) {
         _scanned++;
@@ -156,7 +159,8 @@ class _MigrationScreenState extends State<_MigrationScreen> {
         if (needsUpdate) {
           _matched++;
           updates['updatedAt'] = FieldValue.serverTimestamp();
-          _append('🛠️ ${ref.path}: ${name == kOldValue ? 'name' : ''}${name == kOldValue && address == kOldValue ? ' & ' : ''}${address == kOldValue ? 'address' : ''} -> "$kNewValue"');
+          _append(
+              '🛠️ ${ref.path}: ${name == kOldValue ? 'name' : ''}${name == kOldValue && address == kOldValue ? ' & ' : ''}${address == kOldValue ? 'address' : ''} -> "$kNewValue"');
 
           if (!kDryRun) {
             await ref.update(updates);
@@ -201,7 +205,7 @@ class _MigrationScreenState extends State<_MigrationScreen> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
-            Text('DRY_RUN: $kDryRun'),
+            const Text('DRY_RUN: $kDryRun'),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: _running ? null : _runMigration,
@@ -221,7 +225,8 @@ class _MigrationScreenState extends State<_MigrationScreen> {
                 child: SingleChildScrollView(
                   child: Text(
                     _log,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    style:
+                        const TextStyle(fontFamily: 'monospace', fontSize: 12),
                   ),
                 ),
               ),

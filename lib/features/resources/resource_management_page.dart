@@ -35,16 +35,18 @@ class _ResourceManagementPageState extends State<ResourceManagementPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Row(
+        title: const Row(
           children: [
-            const Icon(Icons.inventory_2, color: Colors.white),
-            const SizedBox(width: 12),
+            Icon(Icons.inventory_2, color: Colors.white),
+            SizedBox(width: 12),
             Expanded(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text('ניהול משאבים', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                children: [
+                  Text('ניהול משאבים',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   SizedBox(height: 2),
                   Text('מחסנים, חניות וספקים', style: TextStyle(fontSize: 12)),
                 ],
@@ -84,10 +86,12 @@ class _ResourceManagementPageState extends State<ResourceManagementPage>
                   onPressed: () async {
                     final newVendor = await showDialog<Vendor>(
                       context: context,
-                      builder: (context) => _AddVendorDialog(buildingId: widget.buildingId),
+                      builder: (context) =>
+                          _AddVendorDialog(buildingId: widget.buildingId),
                     );
                     if (newVendor != null) {
-                      final id = await FirebaseVendorService.addVendor(newVendor);
+                      final id =
+                          await FirebaseVendorService.addVendor(newVendor);
                       // Log activity (best-effort)
                       await FirebaseActivityService.logActivity(
                         buildingId: widget.buildingId,
@@ -98,7 +102,9 @@ class _ResourceManagementPageState extends State<ResourceManagementPage>
                       );
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('הספק נוסף בהצלחה'), backgroundColor: Colors.green),
+                          const SnackBar(
+                              content: Text('הספק נוסף בהצלחה'),
+                              backgroundColor: Colors.green),
                         );
                       }
                     }
@@ -151,13 +157,17 @@ class _AssetsList extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  type == AssetType.storage ? Icons.inventory : Icons.local_parking,
+                  type == AssetType.storage
+                      ? Icons.inventory
+                      : Icons.local_parking,
                   size: 64,
                   color: Colors.grey,
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  type == AssetType.storage ? 'מכין מחסנים...' : 'מכין חניות...',
+                  type == AssetType.storage
+                      ? 'מכין מחסנים...'
+                      : 'מכין חניות...',
                   style: const TextStyle(color: Colors.grey),
                 ),
               ],
@@ -174,7 +184,18 @@ class _AssetsList extends StatelessWidget {
               final r = residents.firstWhere(
                 (e) => e.id == userId,
                 orElse: () => Resident(
-                  id: '', firstName: '', lastName: '', apartmentNumber: '', phoneNumber: '', email: '', residentType: ResidentType.tenant, status: ResidentStatus.active, moveInDate: DateTime.now(), createdAt: DateTime.now(), updatedAt: DateTime.now(), isActive: true,
+                  id: '',
+                  firstName: '',
+                  lastName: '',
+                  apartmentNumber: '',
+                  phoneNumber: '',
+                  email: '',
+                  residentType: ResidentType.tenant,
+                  status: ResidentStatus.active,
+                  moveInDate: DateTime.now(),
+                  createdAt: DateTime.now(),
+                  updatedAt: DateTime.now(),
+                  isActive: true,
                 ),
               );
               if (r.id.isEmpty) return '';
@@ -200,21 +221,29 @@ class _AssetsList extends StatelessWidget {
                           ? Colors.green.withOpacity(0.15)
                           : Colors.grey.withOpacity(0.15),
                       child: Icon(
-                        type == AssetType.storage ? Icons.inventory : Icons.local_parking,
-                        color: (status == 'assigned') ? Colors.green : Colors.grey,
+                        type == AssetType.storage
+                            ? Icons.inventory
+                            : Icons.local_parking,
+                        color:
+                            (status == 'assigned') ? Colors.green : Colors.grey,
                       ),
                     ),
                     title: Text('$label (מס׳ $number)'),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('סטטוס: ${status == 'assigned' ? 'מוקצה' : 'פנוי'}'),
-                        if (assignedToUserId != null && assignedToUserId.isNotEmpty)
+                        Text(
+                            'סטטוס: ${status == 'assigned' ? 'מוקצה' : 'פנוי'}'),
+                        if (assignedToUserId != null &&
+                            assignedToUserId.isNotEmpty)
                           Text('מוקצה: ${nameFor(assignedToUserId)}',
-                              style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                        if (assignedToUnitId != null && assignedToUnitId.isNotEmpty)
+                              style: TextStyle(
+                                  color: Colors.grey[600], fontSize: 12)),
+                        if (assignedToUnitId != null &&
+                            assignedToUnitId.isNotEmpty)
                           Text('דירה: $assignedToUnitId',
-                              style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                              style: TextStyle(
+                                  color: Colors.grey[600], fontSize: 12)),
                       ],
                     ),
                     trailing: Wrap(
@@ -222,13 +251,15 @@ class _AssetsList extends StatelessWidget {
                       children: [
                         if (status != 'assigned')
                           OutlinedButton.icon(
-                            onPressed: () => _assign(context, buildingId, type, number),
+                            onPressed: () =>
+                                _assign(context, buildingId, type, number),
                             icon: const Icon(Icons.person_add),
                             label: const Text('הקצה'),
                           )
                         else
                           OutlinedButton.icon(
-                            onPressed: () => _unassign(context, buildingId, type, number),
+                            onPressed: () =>
+                                _unassign(context, buildingId, type, number),
                             icon: const Icon(Icons.person_remove),
                             label: const Text('בטל'),
                           ),
@@ -244,7 +275,8 @@ class _AssetsList extends StatelessWidget {
     );
   }
 
-  Future<void> _assign(BuildContext context, String buildingId, AssetType type, String number) async {
+  Future<void> _assign(BuildContext context, String buildingId, AssetType type,
+      String number) async {
     final resident = await showDialog<Resident>(
       context: context,
       builder: (context) => _ResidentPickerDialog(buildingId: buildingId),
@@ -269,19 +301,22 @@ class _AssetsList extends StatelessWidget {
       }
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('הוקצה בהצלחה'), backgroundColor: Colors.green),
+          const SnackBar(
+              content: Text('הוקצה בהצלחה'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('שגיאה בהקצאה: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('שגיאה בהקצאה: $e'), backgroundColor: Colors.red),
         );
       }
     }
   }
 
-  Future<void> _unassign(BuildContext context, String buildingId, AssetType type, String number) async {
+  Future<void> _unassign(BuildContext context, String buildingId,
+      AssetType type, String number) async {
     try {
       if (type == AssetType.storage) {
         await AssetInventoryService.unassignStorage(
@@ -296,13 +331,15 @@ class _AssetsList extends StatelessWidget {
       }
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('בוטל בהצלחה'), backgroundColor: Colors.green),
+          const SnackBar(
+              content: Text('בוטל בהצלחה'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('שגיאה בביטול: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('שגיאה בביטול: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -328,7 +365,7 @@ class _ResidentPickerDialog extends StatelessWidget {
             }
             final residents = snapshot.data ?? const <Resident>[];
             if (residents.isEmpty) {
-              return const Center(child: Text('אין דיירים')); 
+              return const Center(child: Text('אין דיירים'));
             }
             return ListView.separated(
               itemCount: residents.length,
@@ -338,7 +375,8 @@ class _ResidentPickerDialog extends StatelessWidget {
                 return ListTile(
                   leading: const Icon(Icons.person),
                   title: Text('${r.firstName} ${r.lastName}'),
-                  subtitle: Text('דירה ${r.apartmentNumber} • ${r.email ?? ''}'),
+                  subtitle:
+                      Text('דירה ${r.apartmentNumber} • ${r.email ?? ''}'),
                   onTap: () => Navigator.of(context).pop(r),
                 );
               },
@@ -390,12 +428,12 @@ class _VendorsListState extends State<_VendorsList> {
         }
 
         final vendors = snapshot.data ?? [];
-        
+
         // Initialize sample data if no vendors exist and not yet initialized
         if (vendors.isEmpty && !_hasInitialized) {
           Future.microtask(() => _initializeSampleVendorData());
         }
-        
+
         if (vendors.isEmpty) {
           return Center(
             child: Column(
@@ -404,9 +442,7 @@ class _VendorsListState extends State<_VendorsList> {
                 const Icon(Icons.build, size: 64, color: Colors.grey),
                 const SizedBox(height: 12),
                 Text(
-                  _hasInitialized 
-                    ? 'אין ספקים' 
-                    : 'מפעיל נתוני דוגמה...',
+                  _hasInitialized ? 'אין ספקים' : 'מפעיל נתוני דוגמה...',
                   style: const TextStyle(color: Colors.grey),
                 ),
                 const SizedBox(height: 8),
@@ -440,7 +476,10 @@ class _VendorsListState extends State<_VendorsList> {
                   Expanded(
                     child: _buildStatCard(
                       'פעילים',
-                      vendors.where((v) => v.status == VendorStatus.active).length.toString(),
+                      vendors
+                          .where((v) => v.status == VendorStatus.active)
+                          .length
+                          .toString(),
                       Icons.check_circle,
                       Colors.green,
                     ),
@@ -448,7 +487,7 @@ class _VendorsListState extends State<_VendorsList> {
                 ],
               ),
             ),
-            
+
             // Vendors list
             Expanded(
               child: ListView.separated(
@@ -466,14 +505,15 @@ class _VendorsListState extends State<_VendorsList> {
       },
     );
   }
-  
+
   void _initializeSampleVendorData() async {
     setState(() {
       _hasInitialized = true;
     });
-    
+
     try {
-      await FirebaseVendorService.initializeSampleVendorDataForBuilding(widget.buildingId);
+      await FirebaseVendorService.initializeSampleVendorDataForBuilding(
+          widget.buildingId);
     } catch (e) {
       print('Error initializing vendor data: $e');
       if (mounted) {
@@ -487,7 +527,8 @@ class _VendorsListState extends State<_VendorsList> {
     }
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -526,7 +567,9 @@ class _VendorsListState extends State<_VendorsList> {
         leading: CircleAvatar(
           backgroundColor: vendor.statusColor.withOpacity(0.15),
           child: Icon(
-            _getCategoryIcon(vendor.categories.isNotEmpty ? vendor.categories.first : VendorCategory.general),
+            _getCategoryIcon(vendor.categories.isNotEmpty
+                ? vendor.categories.first
+                : VendorCategory.general),
             color: vendor.statusColor,
           ),
         ),
@@ -541,7 +584,8 @@ class _VendorsListState extends State<_VendorsList> {
             Text('טלפון: ${vendor.phone}'),
             Text('תחום: ${vendor.categoriesDisplay}'),
             if (vendor.rating != null && vendor.rating! > 0)
-              Text('דירוג: ${'⭐' * vendor.rating!.round()} (${vendor.rating!.toStringAsFixed(1)})'),
+              Text(
+                  'דירוג: ${'⭐' * vendor.rating!.round()} (${vendor.rating!.toStringAsFixed(1)})'),
           ],
         ),
         trailing: Column(
@@ -616,7 +660,8 @@ class _VendorsListState extends State<_VendorsList> {
     if (newVendor != null && mounted) {
       await FirebaseVendorService.addVendor(newVendor);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('הספק נוסף בהצלחה'), backgroundColor: Colors.green),
+        const SnackBar(
+            content: Text('הספק נוסף בהצלחה'), backgroundColor: Colors.green),
       );
     }
   }
@@ -636,9 +681,11 @@ class _VendorsListState extends State<_VendorsList> {
             Text('כתובת: ${vendor.fullAddress}'),
             Text('תחום: ${vendor.categoriesDisplay}'),
             Text('סטטוס: ${vendor.statusDisplay}'),
-            if (vendor.hourlyRate != null) Text('תעריף: ₪${vendor.hourlyRate}/שעה'),
+            if (vendor.hourlyRate != null)
+              Text('תעריף: ₪${vendor.hourlyRate}/שעה'),
             if (vendor.rating != null && vendor.rating! > 0)
-              Text('דירוג: ${'⭐' * vendor.rating!.round()} (${vendor.rating!.toStringAsFixed(1)})'),
+              Text(
+                  'דירוג: ${'⭐' * vendor.rating!.round()} (${vendor.rating!.toStringAsFixed(1)})'),
             if (vendor.notes != null) Text('הערות: ${vendor.notes}'),
           ],
         ),
@@ -703,7 +750,8 @@ class _AddVendorDialogState extends State<_AddVendorDialog> {
                   labelText: 'שם העסק *',
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'נדרש שם עסק' : null,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'נדרש שם עסק' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -712,7 +760,8 @@ class _AddVendorDialogState extends State<_AddVendorDialog> {
                   labelText: 'איש קשר *',
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'נדרש איש קשר' : null,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'נדרש איש קשר' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -721,7 +770,8 @@ class _AddVendorDialogState extends State<_AddVendorDialog> {
                   labelText: 'טלפון *',
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'נדרש טלפון' : null,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'נדרש טלפון' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -739,7 +789,8 @@ class _AddVendorDialogState extends State<_AddVendorDialog> {
                   labelText: 'תעריף לשעה (₪)',
                   border: OutlineInputBorder(),
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -751,7 +802,7 @@ class _AddVendorDialogState extends State<_AddVendorDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<VendorCategory>(
-                value: _category,
+                initialValue: _category,
                 items: [
                   VendorCategory.plumbing,
                   VendorCategory.electrical,
@@ -771,7 +822,8 @@ class _AddVendorDialogState extends State<_AddVendorDialog> {
                     child: Text(_categoryLabel(c)),
                   );
                 }).toList(),
-                onChanged: (v) => setState(() => _category = v ?? VendorCategory.general),
+                onChanged: (v) =>
+                    setState(() => _category = v ?? VendorCategory.general),
                 decoration: const InputDecoration(
                   labelText: 'קטגוריה',
                   border: OutlineInputBorder(),
@@ -850,7 +902,9 @@ class _AddVendorDialogState extends State<_AddVendorDialog> {
       name: _nameController.text.trim(),
       contactPerson: _contactController.text.trim(),
       phone: _phoneController.text.trim(),
-      email: _emailController.text.trim().isEmpty ? null : _emailController.text.trim(),
+      email: _emailController.text.trim().isEmpty
+          ? null
+          : _emailController.text.trim(),
       website: null,
       address: _addressController.text.trim(),
       city: _cityController.text.trim(),
@@ -860,11 +914,15 @@ class _AddVendorDialogState extends State<_AddVendorDialog> {
       status: VendorStatus.active,
       licenseNumber: null,
       insuranceInfo: null,
-      hourlyRate: _hourlyRateController.text.trim().isEmpty ? null : double.tryParse(_hourlyRateController.text.trim()),
+      hourlyRate: _hourlyRateController.text.trim().isEmpty
+          ? null
+          : double.tryParse(_hourlyRateController.text.trim()),
       rating: null,
       completedJobs: 0,
       totalJobs: 0,
-      notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+      notes: _notesController.text.trim().isEmpty
+          ? null
+          : _notesController.text.trim(),
       photoUrls: const [],
       documentUrls: const [],
       createdAt: now,
@@ -874,4 +932,3 @@ class _AddVendorDialogState extends State<_AddVendorDialog> {
     Navigator.of(context).pop(vendor);
   }
 }
-

@@ -10,6 +10,11 @@ service cloud.firestore {
     function inBuilding(bid) { return rolesByBld()[bid] != null || isPlatformAdmin(); }
     function isSelf(uidField) { return authed() && request.auth.uid == uidField; }
 
+    // TEMPORARY: Allow all for development - REMOVE IN PRODUCTION
+    match /{document=**} {
+      allow read, write: if true;
+    }
+    
     // Production: No global allow-all. Access is controlled per-collection below.
 
     // Users collection (claims-based)

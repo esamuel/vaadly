@@ -1,7 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import '../lib/firebase_options.dart';
-import '../lib/services/asset_inventory_service.dart';
+import 'package:vaadly/firebase_options.dart';
+import 'package:vaadly/services/asset_inventory_service.dart';
 
 // Usage:
 // dart run scripts/migrate_seed_inventories.dart
@@ -23,14 +23,25 @@ Future<void> main() async {
     final parkingSpaces = (data['parkingSpaces'] ?? 0) as int;
 
     // Count existing subcollections (basic scan)
-    final storagesSnap = await db.collection('buildings').doc(buildingId).collection('storages').limit(1).get();
-    final parkingSnap = await db.collection('buildings').doc(buildingId).collection('parking').limit(1).get();
+    final storagesSnap = await db
+        .collection('buildings')
+        .doc(buildingId)
+        .collection('storages')
+        .limit(1)
+        .get();
+    final parkingSnap = await db
+        .collection('buildings')
+        .doc(buildingId)
+        .collection('parking')
+        .limit(1)
+        .get();
 
     final needStorages = storageUnits > 0 && storagesSnap.size == 0;
     final needParking = parkingSpaces > 0 && parkingSnap.size == 0;
 
     if (needStorages || needParking) {
-      print('➡️  Seeding building $buildingId (storages=$storageUnits, parking=$parkingSpaces)');
+      print(
+          '➡️  Seeding building $buildingId (storages=$storageUnits, parking=$parkingSpaces)');
       await AssetInventoryService.seedInventoryForBuilding(
         buildingId: buildingId,
         storageCount: needStorages ? storageUnits : 0,
@@ -44,4 +55,3 @@ Future<void> main() async {
 
   print('✅ Done. Seeded: $seeded, skipped: $skipped');
 }
-

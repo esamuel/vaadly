@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:vaadly/features/buildings/buildings_list_screen.dart';
 import 'package:vaadly/features/finance/financial_module/pages/financial_management_page.dart';
+import 'package:vaadly/features/pricing/pages/pricing_calculator_page.dart';
 import 'package:vaadly/pages/firebase_residents_page.dart';
 import 'package:vaadly/pages/firebase_maintenance_page.dart';
 import 'package:vaadly/services/firebase_building_service.dart';
@@ -114,6 +115,17 @@ class _AppOwnerDashboardState extends State<AppOwnerDashboard> {
                     },
                     icon: const Icon(Icons.build),
                     label: const Text('תחזוקה'),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const PricingCalculatorPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.calculate),
+                    label: const Text('מחשבון מחיר'),
                   ),
                 ],
               ),

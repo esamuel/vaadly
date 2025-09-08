@@ -12,6 +12,7 @@ class AssetInventoryService {
         return 'נכס';
     }
   }
+
   static final _db = FirebaseFirestore.instance;
 
   // Seed storages and parking spots for a building (numbered 1..N)
@@ -24,39 +25,47 @@ class AssetInventoryService {
 
     // Storages
     if (storageCount > 0) {
-      final storagesCol = _db.collection('buildings').doc(buildingId).collection('storages');
+      final storagesCol =
+          _db.collection('buildings').doc(buildingId).collection('storages');
       for (int i = 1; i <= storageCount; i++) {
         final id = _formatId('s', i);
         final ref = storagesCol.doc(id);
-        batch.set(ref, {
-          'number': i.toString(),
-          'label': 'מחסן ${_pad(i)}',
-          'status': 'available',
-          'assignedToUserId': null,
-          'assignedToUnitId': null,
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-          'type': 'storage',
-        }, SetOptions(merge: true));
+        batch.set(
+            ref,
+            {
+              'number': i.toString(),
+              'label': 'מחסן ${_pad(i)}',
+              'status': 'available',
+              'assignedToUserId': null,
+              'assignedToUnitId': null,
+              'createdAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+              'type': 'storage',
+            },
+            SetOptions(merge: true));
       }
     }
 
     // Parking
     if (parkingCount > 0) {
-      final parkingCol = _db.collection('buildings').doc(buildingId).collection('parking');
+      final parkingCol =
+          _db.collection('buildings').doc(buildingId).collection('parking');
       for (int i = 1; i <= parkingCount; i++) {
         final id = _formatId('p', i);
         final ref = parkingCol.doc(id);
-        batch.set(ref, {
-          'number': i.toString(),
-          'label': 'חניה ${_pad(i)}',
-          'status': 'available',
-          'assignedToUserId': null,
-          'assignedToUnitId': null,
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-          'type': 'parking',
-        }, SetOptions(merge: true));
+        batch.set(
+            ref,
+            {
+              'number': i.toString(),
+              'label': 'חניה ${_pad(i)}',
+              'status': 'available',
+              'assignedToUserId': null,
+              'assignedToUnitId': null,
+              'createdAt': FieldValue.serverTimestamp(),
+              'updatedAt': FieldValue.serverTimestamp(),
+              'type': 'parking',
+            },
+            SetOptions(merge: true));
       }
     }
 
@@ -71,8 +80,12 @@ class AssetInventoryService {
     String? unitId,
   }) async {
     final docId = _formatId('s', int.parse(number));
-    final ref = _db.collection('buildings').doc(buildingId).collection('storages').doc(docId);
-await ref.set({
+    final ref = _db
+        .collection('buildings')
+        .doc(buildingId)
+        .collection('storages')
+        .doc(docId);
+    await ref.set({
       'status': 'assigned',
       'assignedToUserId': userId,
       'assignedToUnitId': unitId,
@@ -83,9 +96,14 @@ await ref.set({
     await FirebaseActivityService.logActivity(
       buildingId: buildingId,
       type: 'asset_assigned',
-      title: typeLabel('storage') + ' הוקצה',
+      title: '${typeLabel('storage')} הוקצה',
       subtitle: 'מס׳ $number, למשתמש $userId',
-      extra: {'number': number, 'userId': userId, 'unitId': unitId, 'assetType': 'storage'},
+      extra: {
+        'number': number,
+        'userId': userId,
+        'unitId': unitId,
+        'assetType': 'storage'
+      },
     );
   }
 
@@ -94,8 +112,12 @@ await ref.set({
     required String number,
   }) async {
     final docId = _formatId('s', int.parse(number));
-    final ref = _db.collection('buildings').doc(buildingId).collection('storages').doc(docId);
-await ref.set({
+    final ref = _db
+        .collection('buildings')
+        .doc(buildingId)
+        .collection('storages')
+        .doc(docId);
+    await ref.set({
       'status': 'available',
       'assignedToUserId': null,
       'assignedToUnitId': null,
@@ -104,7 +126,7 @@ await ref.set({
     await FirebaseActivityService.logActivity(
       buildingId: buildingId,
       type: 'asset_unassigned',
-      title: typeLabel('storage') + ' בוטלה הקצאה',
+      title: '${typeLabel('storage')} בוטלה הקצאה',
       subtitle: 'מס׳ $number',
       extra: {'number': number, 'assetType': 'storage'},
     );
@@ -118,8 +140,12 @@ await ref.set({
     String? unitId,
   }) async {
     final docId = _formatId('p', int.parse(number));
-    final ref = _db.collection('buildings').doc(buildingId).collection('parking').doc(docId);
-await ref.set({
+    final ref = _db
+        .collection('buildings')
+        .doc(buildingId)
+        .collection('parking')
+        .doc(docId);
+    await ref.set({
       'status': 'assigned',
       'assignedToUserId': userId,
       'assignedToUnitId': unitId,
@@ -129,9 +155,14 @@ await ref.set({
     await FirebaseActivityService.logActivity(
       buildingId: buildingId,
       type: 'asset_assigned',
-      title: typeLabel('parking') + ' הוקצה',
+      title: '${typeLabel('parking')} הוקצה',
       subtitle: 'מס׳ $number, למשתמש $userId',
-      extra: {'number': number, 'userId': userId, 'unitId': unitId, 'assetType': 'parking'},
+      extra: {
+        'number': number,
+        'userId': userId,
+        'unitId': unitId,
+        'assetType': 'parking'
+      },
     );
   }
 
@@ -140,8 +171,12 @@ await ref.set({
     required String number,
   }) async {
     final docId = _formatId('p', int.parse(number));
-    final ref = _db.collection('buildings').doc(buildingId).collection('parking').doc(docId);
-await ref.set({
+    final ref = _db
+        .collection('buildings')
+        .doc(buildingId)
+        .collection('parking')
+        .doc(docId);
+    await ref.set({
       'status': 'available',
       'assignedToUserId': null,
       'assignedToUnitId': null,
@@ -150,22 +185,33 @@ await ref.set({
     await FirebaseActivityService.logActivity(
       buildingId: buildingId,
       type: 'asset_unassigned',
-      title: typeLabel('parking') + ' בוטלה הקצאה',
+      title: '${typeLabel('parking')} בוטלה הקצאה',
       subtitle: 'מס׳ $number',
       extra: {'number': number, 'assetType': 'parking'},
     );
   }
 
   // Streams
-  static Stream<QuerySnapshot<Map<String, dynamic>>> streamStorages(String buildingId) {
-    return _db.collection('buildings').doc(buildingId).collection('storages').orderBy('number').snapshots();
+  static Stream<QuerySnapshot<Map<String, dynamic>>> streamStorages(
+      String buildingId) {
+    return _db
+        .collection('buildings')
+        .doc(buildingId)
+        .collection('storages')
+        .orderBy('number')
+        .snapshots();
   }
 
-  static Stream<QuerySnapshot<Map<String, dynamic>>> streamParking(String buildingId) {
-    return _db.collection('buildings').doc(buildingId).collection('parking').orderBy('number').snapshots();
+  static Stream<QuerySnapshot<Map<String, dynamic>>> streamParking(
+      String buildingId) {
+    return _db
+        .collection('buildings')
+        .doc(buildingId)
+        .collection('parking')
+        .orderBy('number')
+        .snapshots();
   }
 
   static String _formatId(String prefix, int i) => '$prefix-${_pad(i)}';
   static String _pad(int i) => i.toString().padLeft(3, '0');
 }
-

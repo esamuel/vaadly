@@ -16,6 +16,7 @@ import '../buildings/add_building_screen.dart';
 import '../users/password_reset_screen.dart';
 import '../payments/pages/payments_demo_page.dart';
 import '../finance/financial_module/pages/financial_management_page.dart';
+import '../pricing/pages/pricing_calculator_page.dart';
 
 class AppOwnerDashboard extends StatefulWidget {
   const AppOwnerDashboard({super.key});
@@ -339,6 +340,11 @@ class _AppOwnerDashboardState extends State<AppOwnerDashboard> {
               _buildActionCard('ניהול כספי', Icons.account_balance, Colors.teal, () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (context) => const FinancialManagementPage()),
+                );
+              }),
+              _buildActionCard('מחשבון מחיר', Icons.calculate, Colors.deepPurple, () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const PricingCalculatorPage()),
                 );
               }),
               _buildActionCard('אנליטיקה', Icons.bar_chart, Colors.purple, () {

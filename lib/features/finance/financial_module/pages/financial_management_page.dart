@@ -615,14 +615,482 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('הוסף פריט פיננסי'),
-        content: const Text('פונקציונליות זו תתווסף בשלב הבא'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('בחר את סוג הפריט הפיננסי:'),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _showAddInvoiceDialog(context);
+                  },
+                  icon: const Icon(Icons.receipt),
+                  label: const Text('חשבונית'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _showAddExpenseDialog(context);
+                  },
+                  icon: const Icon(Icons.money_off),
+                  label: const Text('הוצאה'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('אישור'),
+            child: const Text('ביטול'),
           ),
         ],
       ),
     );
+  }
+
+  void _showAddInvoiceDialog(BuildContext context) {
+    final formKey = GlobalKey<FormState>();
+    final amountController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final recipientController = TextEditingController();
+    InvoiceType selectedType = InvoiceType.maintenance;
+    DateTime selectedDate = DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('הוסף חשבונית חדשה'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<InvoiceType>(
+                      value: selectedType,
+                      decoration: const InputDecoration(
+                        labelText: 'סוג חשבונית',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: InvoiceType.values.map((type) {
+                        return DropdownMenuItem(
+                          value: type,
+                          child: Text(_getInvoiceTypeText(type)),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedType = value!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: amountController,
+                      decoration: const InputDecoration(
+                        labelText: 'סכום (₪)',
+                        border: OutlineInputBorder(),
+                        prefixText: '₪ ',
+                      ),
+                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      validator: (value) {
+                        if (value?.isEmpty ?? true) {
+                          return 'נא להזין סכום';
+                        }
+                        if (double.tryParse(value!) == null) {
+                          return 'נא להזין סכום תקין';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'תיאור',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 2,
+                      validator: (value) {
+                        if (value?.isEmpty ?? true) {
+                          return 'נא להזין תיאור';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: recipientController,
+                      decoration: const InputDecoration(
+                        labelText: 'נמען',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value?.isEmpty ?? true) {
+                          return 'נא להזין נמען';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      title: const Text('תאריך'),
+                      subtitle: Text('${selectedDate.day}/${selectedDate.month}/${selectedDate.year}'),
+                      trailing: const Icon(Icons.calendar_today),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2030),
+                        );
+                        if (picked != null) {
+                          setState(() {
+                            selectedDate = picked;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('ביטול'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  _createInvoice(
+                    type: selectedType,
+                    amount: double.parse(amountController.text),
+                    description: descriptionController.text,
+                    recipient: recipientController.text,
+                    date: selectedDate,
+                  );
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('צור חשבונית'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddExpenseDialog(BuildContext context) {
+    final formKey = GlobalKey<FormState>();
+    final amountController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final vendorController = TextEditingController();
+    ExpenseCategory selectedCategory = ExpenseCategory.maintenance;
+    ExpensePriority selectedPriority = ExpensePriority.normal;
+    DateTime selectedDate = DateTime.now();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('הוסף הוצאה חדשה'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<ExpenseCategory>(
+                      value: selectedCategory,
+                      decoration: const InputDecoration(
+                        labelText: 'קטגורית הוצאה',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: ExpenseCategory.values.map((category) {
+                        return DropdownMenuItem(
+                          value: category,
+                          child: Text(_getExpenseCategoryText(category)),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedCategory = value!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: amountController,
+                      decoration: const InputDecoration(
+                        labelText: 'סכום (₪)',
+                        border: OutlineInputBorder(),
+                        prefixText: '₪ ',
+                      ),
+                      keyboardType: TextInputType.numberWithOptions(decimal: true),
+                      validator: (value) {
+                        if (value?.isEmpty ?? true) {
+                          return 'נא להזין סכום';
+                        }
+                        if (double.tryParse(value!) == null) {
+                          return 'נא להזין סכום תקין';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: descriptionController,
+                      decoration: const InputDecoration(
+                        labelText: 'תיאור',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 2,
+                      validator: (value) {
+                        if (value?.isEmpty ?? true) {
+                          return 'נא להזין תיאור';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: vendorController,
+                      decoration: const InputDecoration(
+                        labelText: 'ספק/נותן שירות',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<ExpensePriority>(
+                      value: selectedPriority,
+                      decoration: const InputDecoration(
+                        labelText: 'עדיפות',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: ExpensePriority.values.map((priority) {
+                        return DropdownMenuItem(
+                          value: priority,
+                          child: Text(_getExpensePriorityText(priority)),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          selectedPriority = value!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      title: const Text('תאריך'),
+                      subtitle: Text('${selectedDate.day}/${selectedDate.month}/${selectedDate.year}'),
+                      trailing: const Icon(Icons.calendar_today),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2030),
+                        );
+                        if (picked != null) {
+                          setState(() {
+                            selectedDate = picked;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('ביטול'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  _createExpense(
+                    category: selectedCategory,
+                    amount: double.parse(amountController.text),
+                    description: descriptionController.text,
+                    vendor: vendorController.text.isEmpty ? null : vendorController.text,
+                    priority: selectedPriority,
+                    date: selectedDate,
+                  );
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('צור הוצאה'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _createInvoice({
+    required InvoiceType type,
+    required double amount,
+    required String description,
+    required String recipient,
+    required DateTime date,
+  }) {
+    if (_selectedBuildingId == null) return;
+
+    final invoiceItem = InvoiceItem(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      description: description,
+      quantity: 1,
+      unitPrice: amount,
+    );
+
+    final invoice = Invoice(
+      id: 'inv_${DateTime.now().millisecondsSinceEpoch}',
+      buildingId: _selectedBuildingId!,
+      invoiceNumber: 'INV-${DateTime.now().millisecondsSinceEpoch}',
+      type: type,
+      status: InvoiceStatus.draft,
+      issueDate: date,
+      dueDate: date.add(const Duration(days: 30)),
+      items: [invoiceItem],
+      subtotal: invoiceItem.subtotal,
+      taxAmount: invoiceItem.taxAmount,
+      total: invoiceItem.subtotal + invoiceItem.taxAmount,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    // TODO: Save to Firebase instead of just local service
+    FinancialService.addInvoice(invoice);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('חשבונית נוצרה בהצלחה'),
+        backgroundColor: Colors.green,
+      ),
+    );
+
+    _loadFinancialData(); // Refresh data
+  }
+
+  void _createExpense({
+    required ExpenseCategory category,
+    required double amount,
+    required String description,
+    String? vendor,
+    required ExpensePriority priority,
+    required DateTime date,
+  }) {
+    if (_selectedBuildingId == null) return;
+
+    final expense = Expense(
+      id: 'exp_${DateTime.now().millisecondsSinceEpoch}',
+      buildingId: _selectedBuildingId!,
+      title: description,
+      description: description,
+      category: category,
+      status: amount <= 2000 ? ExpenseStatus.approved : ExpenseStatus.pending, // Auto-approve small expenses
+      priority: priority,
+      amount: amount,
+      vendorName: vendor,
+      expenseDate: date,
+      dueDate: date.add(const Duration(days: 30)),
+      approvedBy: amount <= 2000 ? 'system' : null,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    // TODO: Save to Firebase instead of just local service
+    FinancialService.addExpense(expense);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(amount <= 2000 ? 'הוצאה נוצרה ואושרה אוטומטית' : 'הוצאה נוצרה ומחכה לאישור'),
+        backgroundColor: Colors.green,
+      ),
+    );
+
+    _loadFinancialData(); // Refresh data
+  }
+
+  String _getInvoiceTypeText(InvoiceType type) {
+    switch (type) {
+      case InvoiceType.maintenance:
+        return 'תחזוקה';
+      case InvoiceType.rent:
+        return 'שכר דירה';
+      case InvoiceType.utilities:
+        return 'שירותים';
+      case InvoiceType.insurance:
+        return 'ביטוח';
+      case InvoiceType.taxes:
+        return 'מסים';
+      case InvoiceType.management:
+        return 'ניהול';
+      case InvoiceType.other:
+        return 'אחר';
+    }
+  }
+
+  String _getExpenseCategoryText(ExpenseCategory category) {
+    switch (category) {
+      case ExpenseCategory.maintenance:
+        return 'תחזוקה';
+      case ExpenseCategory.utilities:
+        return 'שירותים';
+      case ExpenseCategory.insurance:
+        return 'ביטוח';
+      case ExpenseCategory.taxes:
+        return 'מסים';
+      case ExpenseCategory.management:
+        return 'ניהול';
+      case ExpenseCategory.cleaning:
+        return 'ניקיון';
+      case ExpenseCategory.gardening:
+        return 'גינון';
+      case ExpenseCategory.security:
+        return 'אבטחה';
+      case ExpenseCategory.legal:
+        return 'משפטי';
+      case ExpenseCategory.marketing:
+        return 'שיווק';
+      case ExpenseCategory.other:
+        return 'אחר';
+    }
+  }
+
+  String _getExpensePriorityText(ExpensePriority priority) {
+    switch (priority) {
+      case ExpensePriority.low:
+        return 'נמוכה';
+      case ExpensePriority.normal:
+        return 'רגילה';
+      case ExpensePriority.high:
+        return 'גבוהה';
+      case ExpensePriority.urgent:
+        return 'דחוף';
+    }
   }
 }

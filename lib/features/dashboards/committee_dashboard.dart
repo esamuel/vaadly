@@ -9,7 +9,6 @@ import '../../core/models/resident.dart';
 import '../auth/auth_screen.dart';
 import '../management/resident_invitation_screen.dart';
 import '../residents/pages/residents_page.dart';
-import '../residents/widgets/add_resident_form.dart';
 import '../maintenance/maintenance_dashboard.dart';
 import '../finance/financial_module/financial_dashboard.dart';
 import '../settings/building_settings_dashboard.dart';
@@ -48,23 +47,29 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
         // Prefer explicit building context if present; otherwise use user's first accessible building ID
         String? targetBuildingId = BuildingContextService.hasBuilding
             ? BuildingContextService.buildingId
-            : (user.buildingAccess.isNotEmpty ? user.buildingAccess.keys.first : null);
+            : (user.buildingAccess.isNotEmpty
+                ? user.buildingAccess.keys.first
+                : null);
 
         print('🔍 Target building ID to load: ${targetBuildingId ?? 'none'}');
 
         if (targetBuildingId != null) {
           // Load only this building by ID
-          _building = await FirebaseBuildingService.getBuildingById(targetBuildingId);
+          _building =
+              await FirebaseBuildingService.getBuildingById(targetBuildingId);
 
           // If not found by ID, try interpreting the key as a building code
           if (_building == null) {
-            print('ℹ️ Building not found by ID, trying as code: $targetBuildingId');
-            final byCode = await FirebaseBuildingService.getBuildingByCode(targetBuildingId);
+            print(
+                'ℹ️ Building not found by ID, trying as code: $targetBuildingId');
+            final byCode = await FirebaseBuildingService.getBuildingByCode(
+                targetBuildingId);
             if (byCode != null) {
               _building = byCode;
               // Persist context for the session
               try {
-                await BuildingContextService.setBuildingContextByCode(byCode.buildingCode);
+                await BuildingContextService.setBuildingContextByCode(
+                    byCode.buildingCode);
               } catch (_) {}
             }
           }
@@ -202,7 +207,8 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
                 _buildSettingsTab(),
               ],
             ),
-      floatingActionButton: null, // Remove duplicate FAB - ResidentsPage handles this
+      floatingActionButton:
+          null, // Remove duplicate FAB - ResidentsPage handles this
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
@@ -336,7 +342,8 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
                 final residents = snapshot.data ?? const <Resident>[];
                 final total = residents.length;
                 final active = residents
-                    .where((r) => r.isActive && r.status == ResidentStatus.active)
+                    .where(
+                        (r) => r.isActive && r.status == ResidentStatus.active)
                     .length;
                 final owners = residents
                     .where((r) => r.residentType == ResidentType.owner)
@@ -415,7 +422,9 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
             }
             return Card(
               child: StreamBuilder<List<Map<String, dynamic>>>(
-                stream: FirebaseActivityService.streamRecentActivities(buildingId, limit: 5),
+                stream: FirebaseActivityService.streamRecentActivities(
+                    buildingId,
+                    limit: 5),
                 builder: (context, snapshot) {
                   final items = snapshot.data ?? const [];
                   if (items.isEmpty) {

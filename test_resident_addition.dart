@@ -1,10 +1,9 @@
 #!/usr/bin/env dart
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 void main() async {
   // Test data for a new resident
   print('🧪 Testing resident addition to building: shalom1234');
-  
+
   final testResident = {
     'buildingId': 'shalom1234',
     'firstName': 'בדיקה',
@@ -23,18 +22,19 @@ void main() async {
     'customFields': {},
     'notes': 'דייר לבדיקה'
   };
-  
+
   print('📋 Test resident data:');
   testResident.forEach((key, value) {
     print('  $key: $value');
   });
-  
+
   print('\nℹ️ To test this:');
-  print('1. Sign in as committee user: committee@shalom-tower.co.il (password: 123456)');
+  print(
+      '1. Sign in as committee user: committee@shalom-tower.co.il (password: 123456)');
   print('2. Navigate to the residents tab');
   print('3. Add a new resident with the above information');
   print('4. Check if the resident is saved and appears in the list');
-  
+
   print('\n🔍 Expected behavior:');
   print('- The form should submit successfully');
   print('- The resident should appear in the residents list');

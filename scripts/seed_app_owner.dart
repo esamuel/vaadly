@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import '../lib/firebase_options.dart';
+import 'package:vaadly/firebase_options.dart';
 
 // Usage: dart scripts/seed_app_owner.dart
 // Seeds or updates an App Owner document so you can sign in via App Owner portal.

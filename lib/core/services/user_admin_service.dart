@@ -12,7 +12,8 @@ class UserAdminService {
   }
 
   static Future<String> generateResetLink(String email) async {
-    final callable = _functions.httpsCallable('generatePasswordResetLinkForOwner');
+    final callable =
+        _functions.httpsCallable('generatePasswordResetLinkForOwner');
     final res = await callable.call({'email': email});
     return (res.data['resetLink'] as String?) ?? '';
   }
@@ -20,7 +21,14 @@ class UserAdminService {
   // Utility: convert users to CSV content (dev use only)
   static String usersToCsv(List<Map<String, dynamic>> users) {
     const headers = [
-      'name', 'email', 'role', 'isActive', 'lastLogin', 'uid', 'emailVerified', 'disabled'
+      'name',
+      'email',
+      'role',
+      'isActive',
+      'lastLogin',
+      'uid',
+      'emailVerified',
+      'disabled'
     ];
     final headerLine = headers.join(',');
     final lines = <String>[headerLine];
@@ -35,7 +43,16 @@ class UserAdminService {
       final uid = _csv(auth?['uid'] ?? '');
       final emailVerified = _csv('${auth?['emailVerified'] ?? false}');
       final disabled = _csv('${auth?['disabled'] ?? false}');
-      lines.add([name, email, role, isActive, lastLogin, uid, emailVerified, disabled].join(','));
+      lines.add([
+        name,
+        email,
+        role,
+        isActive,
+        lastLogin,
+        uid,
+        emailVerified,
+        disabled
+      ].join(','));
     }
 
     return lines.join('\n');
@@ -44,7 +61,7 @@ class UserAdminService {
   static String _csv(dynamic value) {
     final s = (value ?? '').toString();
     if (s.contains(',') || s.contains('"') || s.contains('\n')) {
-      return '"' + s.replaceAll('"', '""') + '"';
+      return '"${s.replaceAll('"', '""')}"';
     }
     return s;
   }

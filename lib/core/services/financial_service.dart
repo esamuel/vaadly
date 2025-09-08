@@ -222,7 +222,7 @@ class FinancialService {
         0, (sum, expense) => sum + expense.amount);
     final totalApprovedExpenses = buildingExpenses
         .where((e) => e.isApproved)
-        .fold<double>(0, (sum, expense) => sum + expense.approvedAmount!);
+        .fold<double>(0, (sum, expense) => sum + (expense.approvedAmount ?? expense.amount));
     final totalPaidExpenses = buildingExpenses
         .where((e) => e.isPaid)
         .fold<double>(0, (sum, expense) => sum + expense.amount);

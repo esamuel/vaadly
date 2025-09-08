@@ -117,7 +117,9 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
     if (_selectedFilterIndex == 0) return src;
 
     if (_selectedFilterIndex == 4) {
-      return src.where((req) => req.priority == MaintenancePriority.urgent).toList();
+      return src
+          .where((req) => req.priority == MaintenancePriority.urgent)
+          .toList();
     }
 
     final statusMap = {
@@ -243,10 +245,12 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.build, size: 64, color: Colors.grey),
+                                  Icon(Icons.build,
+                                      size: 64, color: Colors.grey),
                                   SizedBox(height: 16),
                                   Text('אין בקשות תחזוקה',
-                                      style: TextStyle(fontSize: 18, color: Colors.grey)),
+                                      style: TextStyle(
+                                          fontSize: 18, color: Colors.grey)),
                                 ],
                               ),
                             );
@@ -269,7 +273,8 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
                                 Icon(Icons.build, size: 64, color: Colors.grey),
                                 SizedBox(height: 16),
                                 Text('אין בקשות תחזוקה',
-                                    style: TextStyle(fontSize: 18, color: Colors.grey)),
+                                    style: TextStyle(
+                                        fontSize: 18, color: Colors.grey)),
                               ],
                             ),
                           )
@@ -490,7 +495,11 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
               // Assign to vendor
               final vendor = await _pickVendor(request.buildingId);
               if (vendor != null) {
-                await FirebaseMaintenanceService.assignToVendor(request.buildingId, request.id, vendor['id']!, vendor['name']!);
+                await FirebaseMaintenanceService.assignToVendor(
+                    request.buildingId,
+                    request.id,
+                    vendor['id']!,
+                    vendor['name']!);
                 await FirebaseActivityService.logActivity(
                   buildingId: request.buildingId,
                   type: 'maintenance_assigned',
@@ -507,7 +516,8 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
               onPressed: () async {
                 Navigator.of(context).pop();
                 // Start work in Firestore
-                await FirebaseMaintenanceService.startWork(request.buildingId, request.id);
+                await FirebaseMaintenanceService.startWork(
+                    request.buildingId, request.id);
                 await FirebaseActivityService.logActivity(
                   buildingId: request.buildingId,
                   type: 'maintenance_started',
@@ -523,7 +533,8 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
               onPressed: () async {
                 Navigator.of(context).pop();
                 // Complete in Firestore
-                await FirebaseMaintenanceService.completeWork(request.buildingId, request.id, '');
+                await FirebaseMaintenanceService.completeWork(
+                    request.buildingId, request.id, '');
                 await FirebaseActivityService.logActivity(
                   buildingId: request.buildingId,
                   type: 'maintenance_completed',
@@ -548,7 +559,8 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
           final buildingId = request.buildingId;
           String? savedId;
           if (buildingId.isNotEmpty) {
-            savedId = await FirebaseMaintenanceService.addMaintenanceRequest(buildingId, request);
+            savedId = await FirebaseMaintenanceService.addMaintenanceRequest(
+                buildingId, request);
           }
           if (savedId == null) {
             // Fallback locally
@@ -578,7 +590,8 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
                 leading: const Icon(Icons.business),
                 title: Text(v.name),
                 subtitle: Text(v.categoriesDisplay),
-                onTap: () => Navigator.of(context).pop({'id': v.id, 'name': v.name}),
+                onTap: () =>
+                    Navigator.of(context).pop({'id': v.id, 'name': v.name}),
               );
             },
           ),
@@ -617,10 +630,12 @@ class _AddMaintenanceRequestDialog extends StatefulWidget {
   const _AddMaintenanceRequestDialog({required this.onSubmit});
 
   @override
-  State<_AddMaintenanceRequestDialog> createState() => _AddMaintenanceRequestDialogState();
+  State<_AddMaintenanceRequestDialog> createState() =>
+      _AddMaintenanceRequestDialogState();
 }
 
-class _AddMaintenanceRequestDialogState extends State<_AddMaintenanceRequestDialog> {
+class _AddMaintenanceRequestDialogState
+    extends State<_AddMaintenanceRequestDialog> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
@@ -654,7 +669,8 @@ class _AddMaintenanceRequestDialogState extends State<_AddMaintenanceRequestDial
                     labelText: 'כותרת *',
                     border: OutlineInputBorder(),
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'נדרשת כותרת' : null,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'נדרשת כותרת' : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -664,7 +680,8 @@ class _AddMaintenanceRequestDialogState extends State<_AddMaintenanceRequestDial
                     border: OutlineInputBorder(),
                   ),
                   maxLines: 3,
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'נדרש תיאור' : null,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'נדרש תיאור' : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
@@ -679,12 +696,15 @@ class _AddMaintenanceRequestDialogState extends State<_AddMaintenanceRequestDial
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<MaintenanceCategory>(
-                        value: _category,
-                        items: MaintenanceCategory.values.map((c) => DropdownMenuItem(
-                          value: c,
-                          child: Text(_categoryLabel(c)),
-                        )).toList(),
-                        onChanged: (v) => setState(() => _category = v ?? MaintenanceCategory.general),
+                        initialValue: _category,
+                        items: MaintenanceCategory.values
+                            .map((c) => DropdownMenuItem(
+                                  value: c,
+                                  child: Text(_categoryLabel(c)),
+                                ))
+                            .toList(),
+                        onChanged: (v) => setState(
+                            () => _category = v ?? MaintenanceCategory.general),
                         decoration: const InputDecoration(
                           labelText: 'קטגוריה',
                           border: OutlineInputBorder(),
@@ -694,12 +714,15 @@ class _AddMaintenanceRequestDialogState extends State<_AddMaintenanceRequestDial
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<MaintenancePriority>(
-                        value: _priority,
-                        items: MaintenancePriority.values.map((p) => DropdownMenuItem(
-                          value: p,
-                          child: Text(_priorityLabel(p)),
-                        )).toList(),
-                        onChanged: (v) => setState(() => _priority = v ?? MaintenancePriority.normal),
+                        initialValue: _priority,
+                        items: MaintenancePriority.values
+                            .map((p) => DropdownMenuItem(
+                                  value: p,
+                                  child: Text(_priorityLabel(p)),
+                                ))
+                            .toList(),
+                        onChanged: (v) => setState(
+                            () => _priority = v ?? MaintenancePriority.normal),
                         decoration: const InputDecoration(
                           labelText: 'עדיפות',
                           border: OutlineInputBorder(),
@@ -760,7 +783,8 @@ class _AddMaintenanceRequestDialogState extends State<_AddMaintenanceRequestDial
     final now = DateTime.now();
     final request = MaintenanceRequest(
       id: now.millisecondsSinceEpoch.toString(),
-      buildingId: (BuildingContextService.currentBuilding?.buildingId ?? 'demo_building_1'),
+      buildingId: (BuildingContextService.currentBuilding?.buildingId ??
+          'demo_building_1'),
       residentId: 'committee',
       title: _titleController.text.trim(),
       description: _descController.text.trim(),
@@ -768,7 +792,9 @@ class _AddMaintenanceRequestDialogState extends State<_AddMaintenanceRequestDial
       priority: _priority,
       status: MaintenanceStatus.pending,
       reportedAt: now,
-      location: _locationController.text.trim().isEmpty ? null : _locationController.text.trim(),
+      location: _locationController.text.trim().isEmpty
+          ? null
+          : _locationController.text.trim(),
       createdAt: now,
       updatedAt: now,
     );

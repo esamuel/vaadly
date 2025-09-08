@@ -43,14 +43,15 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
   Future<void> _loadBuildingData() async {
     try {
       final buildingId = widget.building['id'] as String;
-      print('🏢 Loading building data for ID: $buildingId using flat structure');
+      print(
+          '🏢 Loading building data for ID: $buildingId using flat structure');
 
       // Use flat collection structure
       final doc = await FirebaseFirestore.instance
           .collection('buildings')
           .doc(buildingId)
           .get();
-          
+
       if (!doc.exists) {
         print('⚠️ Building document does not exist: $buildingId');
         return;
@@ -71,7 +72,9 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
   }
 
   void _copyBuildingLink() async {
-    final code = (widget.building['buildingCode'] ?? widget.building['code'] ?? '').toString();
+    final code =
+        (widget.building['buildingCode'] ?? widget.building['code'] ?? '')
+            .toString();
     if (code.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('לא נמצא קוד בניין להעתקה')),
@@ -98,7 +101,7 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
   @override
   Widget build(BuildContext context) {
     final building = _buildingData ?? widget.building;
-    
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -211,7 +214,7 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
 
   Widget _buildOverviewTab() {
     final building = widget.building;
-    
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -232,7 +235,8 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
                           color: Colors.indigo.withOpacity(0.1),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.business, color: Colors.indigo, size: 32),
+                        child: const Icon(Icons.business,
+                            color: Colors.indigo, size: 32),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -263,11 +267,13 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.green.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.green.withOpacity(0.3)),
+                          border:
+                              Border.all(color: Colors.green.withOpacity(0.3)),
                         ),
                         child: Text(
                           building['status'],
@@ -282,11 +288,13 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
+                      const Icon(Icons.calendar_today,
+                          size: 16, color: Colors.grey),
                       const SizedBox(width: 4),
                       Text('נוצר: ${building['created']}'),
                       const Spacer(),
-                      const Icon(Icons.access_time, size: 16, color: Colors.grey),
+                      const Icon(Icons.access_time,
+                          size: 16, color: Colors.grey),
                       const SizedBox(width: 4),
                       Text('פעילות אחרונה: ${building['lastActivity']}'),
                     ],
@@ -301,23 +309,28 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
           Text(
             'נתוני בניין',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+                  fontWeight: FontWeight.bold,
+                ),
           ),
           const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
-                child: _buildStatCard('דירות', building['units'].toString(), Icons.home, Colors.blue),
+                child: _buildStatCard('דירות', building['units'].toString(),
+                    Icons.home, Colors.blue),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: StreamBuilder(
-                  stream: FirebaseResidentService.streamResidents(building['id'] as String),
+                  stream: FirebaseResidentService.streamResidents(
+                      building['id'] as String),
                   builder: (context, snapshot) {
-                    final count = snapshot.hasData ? (snapshot.data as List).length : null;
+                    final count = snapshot.hasData
+                        ? (snapshot.data as List).length
+                        : null;
                     final value = count != null ? count.toString() : '...';
-                    return _buildStatCard('דיירים', value, Icons.people, Colors.teal);
+                    return _buildStatCard(
+                        'דיירים', value, Icons.people, Colors.teal);
                   },
                 ),
               ),
@@ -327,7 +340,11 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
           Row(
             children: [
               Expanded(
-                child: _buildStatCard('תקלות פתוחות', building['openIssues'].toString(), Icons.warning, Colors.orange),
+                child: _buildStatCard(
+                    'תקלות פתוחות',
+                    building['openIssues'].toString(),
+                    Icons.warning,
+                    Colors.orange),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -346,8 +363,8 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
           Text(
             'פרטי ועד הבית',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+                  fontWeight: FontWeight.bold,
+                ),
           ),
           const SizedBox(height: 16),
           Card(
@@ -355,11 +372,13 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  _buildInfoRow('מנהל הבניין', building['committee'], Icons.person),
+                  _buildInfoRow(
+                      'מנהל הבניין', building['committee'], Icons.person),
                   const Divider(),
                   _buildInfoRow('טלפון', building['phone'], Icons.phone),
                   const Divider(),
-                  _buildInfoRow('דואר אלקטרוני', building['email'], Icons.email),
+                  _buildInfoRow(
+                      'דואר אלקטרוני', building['email'], Icons.email),
                 ],
               ),
             ),
@@ -370,8 +389,8 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
           Text(
             'קישור הבניין',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+                  fontWeight: FontWeight.bold,
+                ),
           ),
           const SizedBox(height: 16),
           Card(
@@ -407,7 +426,8 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
                       children: [
                         Expanded(
                           child: Text(
-                            AppLinks.buildingPortal(building['code'], canonical: true),
+                            AppLinks.buildingPortal(building['code'],
+                                canonical: true),
                             style: const TextStyle(
                               fontFamily: 'monospace',
                               color: Colors.blue,
@@ -440,7 +460,7 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
   }
 
   Widget _buildResidentsTab() {
-    return ResidentsPage();
+    return const ResidentsPage();
   }
 
   Widget _buildMaintenanceTab() {
@@ -452,7 +472,8 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
           SizedBox(height: 16),
           Text('בקשות תחזוקה', style: TextStyle(fontSize: 18)),
           SizedBox(height: 8),
-          Text('כל הבקשות והתקלות של הבניין', style: TextStyle(color: Colors.grey)),
+          Text('כל הבקשות והתקלות של הבניין',
+              style: TextStyle(color: Colors.grey)),
         ],
       ),
     );
@@ -467,7 +488,8 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
           SizedBox(height: 16),
           Text('ניהול כספים', style: TextStyle(fontSize: 18)),
           SizedBox(height: 8),
-          Text('תשלומים, חשבוניות והוצאות', style: TextStyle(color: Colors.grey)),
+          Text('תשלומים, חשבוניות והוצאות',
+              style: TextStyle(color: Colors.grey)),
         ],
       ),
     );
@@ -479,7 +501,8 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -594,7 +617,7 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
   Future<void> _deleteBuilding() async {
     try {
       final building = widget.building;
-      
+
       // Show loading
       showDialog(
         context: context,
@@ -612,7 +635,8 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
       );
 
       // Delete from Firebase
-      final success = await FirebaseBuildingService.deleteBuilding(building['id']);
+      final success =
+          await FirebaseBuildingService.deleteBuilding(building['id']);
 
       // Close loading dialog
       if (mounted) Navigator.of(context).pop();
@@ -625,7 +649,7 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
             backgroundColor: Colors.green,
           ),
         );
-        
+
         // Go back to buildings list
         if (mounted) {
           Navigator.of(context).pop(true); // Return true to indicate deletion
@@ -642,7 +666,7 @@ class _BuildingDetailScreenState extends State<BuildingDetailScreen>
     } catch (e) {
       // Close loading dialog if still open
       if (mounted) Navigator.of(context).pop();
-      
+
       // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

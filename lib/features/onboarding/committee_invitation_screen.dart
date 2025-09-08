@@ -6,7 +6,6 @@ import '../../core/services/auth_service.dart';
 import '../../core/services/building_context_service.dart';
 import '../../core/config/app_links.dart';
 import '../../services/firebase_building_service.dart';
-import '../dashboards/committee_dashboard.dart';
 import '../../core/utils/phone_number_formatter.dart';
 import '../../core/widgets/auth_wrapper.dart';
 
@@ -19,7 +18,8 @@ class CommitteeInvitationScreen extends StatefulWidget {
   });
 
   @override
-  State<CommitteeInvitationScreen> createState() => _CommitteeInvitationScreenState();
+  State<CommitteeInvitationScreen> createState() =>
+      _CommitteeInvitationScreenState();
 }
 
 class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
@@ -82,14 +82,16 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
   Future<void> _loadBuilding() async {
     try {
       print('🔍 Loading building by code: ${widget.buildingCode}');
-      final byCode = await FirebaseBuildingService.getBuildingByCode(widget.buildingCode);
+      final byCode =
+          await FirebaseBuildingService.getBuildingByCode(widget.buildingCode);
       if (byCode == null) {
         throw Exception('Building not found');
       }
       _building = byCode;
       // Set context for downstream flows
       try {
-        await BuildingContextService.setBuildingContextByCode(byCode.buildingCode);
+        await BuildingContextService.setBuildingContextByCode(
+            byCode.buildingCode);
       } catch (ctxError) {
         print('⚠️ Failed to set building context: $ctxError');
       }
@@ -117,14 +119,15 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
       final email = _emailController.text.trim();
       final password = _passwordController.text.trim();
       final name = _nameController.text.trim();
-      
+
       print('🔐 Creating committee account for: $email');
-      
+
       // Step 1: Create Firebase Auth account with email and password
       // This automatically signs the user in and returns the Firebase User
-      final authUser = await AuthService.createFirebaseAuthAccount(email, password);
+      final authUser =
+          await AuthService.createFirebaseAuthAccount(email, password);
       print('✅ Firebase Auth account created and signed in: ${authUser.email}');
-      
+
       // Step 2: Create user document in Firestore
       final user = await AuthService.createUser(
         email: email,
@@ -165,7 +168,7 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
 
         // Wait a moment for the success message to show, then navigate
         await Future.delayed(const Duration(milliseconds: 500));
-        
+
         // Navigate to main app (committee dashboard)
         if (mounted) {
           // Use pushReplacement to ensure clean navigation to main app
@@ -179,7 +182,7 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
       }
     } catch (e) {
       print('❌ Error creating committee account: $e');
-      
+
       // Only show error if this is a real authentication failure
       if (mounted) {
         String errorMessage;
@@ -191,13 +194,15 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
           errorMessage = 'כתובת אימייל לא תקינה';
         } else if (e.toString().contains('network-request-failed')) {
           errorMessage = 'בעיית רשת. אנא בדוק את החיבור לאינטרנט';
-        } else if (e.toString().contains('User with this email already exists')) {
+        } else if (e
+            .toString()
+            .contains('User with this email already exists')) {
           errorMessage = 'משתמש עם כתובת אימייל זו כבר קיים';
         } else {
           // Only show generic error for unexpected issues
           errorMessage = 'שגיאה ביצירת החשבון. אנא נסה שוב.';
         }
-        
+
         setState(() {
           _errorMessage = errorMessage;
         });
@@ -286,7 +291,9 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
                           SizedBox(width: 8),
                           Text(
                             'מה לעשות?',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue),
                           ),
                         ],
                       ),
@@ -301,7 +308,8 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
                       ),
                       Text(
                         AppLinks.managePortal('example-code', canonical: true),
-                        style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                        style: const TextStyle(
+                            fontFamily: 'monospace', fontSize: 12),
                       ),
                     ],
                   ),
@@ -354,9 +362,9 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
               Text(
                 'ברוכים הבאים לוועד-לי!',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.indigo,
-                ),
+                      fontWeight: FontWeight.bold,
+                      color: Colors.indigo,
+                    ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
@@ -364,8 +372,8 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
               Text(
                 'הוזמנתם לנהל את הבניין שלכם',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.grey[600],
-                ),
+                      color: Colors.grey[600],
+                    ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
@@ -439,9 +447,10 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
                       children: [
                         Text(
                           'הקמת חשבון ועד הבית',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style:
+                              Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                         ),
                         const SizedBox(height: 8),
                         Text(
@@ -526,7 +535,9 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
                             prefixIcon: const Icon(Icons.lock),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _passwordVisible ? Icons.visibility : Icons.visibility_off,
+                                _passwordVisible
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
                               ),
                               onPressed: () {
                                 setState(() {
@@ -554,11 +565,14 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _confirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                                _confirmPasswordVisible
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
                               ),
                               onPressed: () {
                                 setState(() {
-                                  _confirmPasswordVisible = !_confirmPasswordVisible;
+                                  _confirmPasswordVisible =
+                                      !_confirmPasswordVisible;
                                 });
                               },
                             ),
@@ -581,12 +595,14 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
                             margin: const EdgeInsets.only(bottom: 16),
                             decoration: BoxDecoration(
                               color: Colors.red.withOpacity(0.1),
-                              border: Border.all(color: Colors.red.withOpacity(0.3)),
+                              border: Border.all(
+                                  color: Colors.red.withOpacity(0.3)),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.error_outline, color: Colors.red),
+                                const Icon(Icons.error_outline,
+                                    color: Colors.red),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
@@ -602,7 +618,8 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: _creating ? null : _createCommitteeAccount,
+                            onPressed:
+                                _creating ? null : _createCommitteeAccount,
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               backgroundColor: Colors.indigo,
@@ -618,7 +635,8 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
                                         height: 20,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation(Colors.white),
+                                          valueColor: AlwaysStoppedAnimation(
+                                              Colors.white),
                                         ),
                                       ),
                                       SizedBox(width: 12),

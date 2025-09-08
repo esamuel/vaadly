@@ -62,7 +62,8 @@ class StripePaymentService {
           if (residentId != null) 'metadata[resident_id]': residentId,
           if (invoiceId != null) 'metadata[invoice_id]': invoiceId,
           if (metadata != null)
-            ...metadata.map((key, value) => MapEntry('metadata[$key]', value.toString())),
+            ...metadata.map(
+                (key, value) => MapEntry('metadata[$key]', value.toString())),
         },
       );
 
@@ -96,8 +97,8 @@ class StripePaymentService {
                   paymentMethodId: paymentMethodId,
                 ),
               )
-            : PaymentMethodParams.card(
-                paymentMethodData: const PaymentMethodData(),
+            : const PaymentMethodParams.card(
+                paymentMethodData: PaymentMethodData(),
               ),
       );
 
@@ -325,7 +326,8 @@ class StripePaymentService {
   }
 
   // Get payments for a building
-  static Future<List<app.Payment>> getPaymentsByBuilding(String buildingId) async {
+  static Future<List<app.Payment>> getPaymentsByBuilding(
+      String buildingId) async {
     try {
       final snapshot = await FirebaseService.getDocuments(
         'buildings/$buildingId/payments',
@@ -350,7 +352,8 @@ class StripePaymentService {
   static Future<List<app.Payment>> getOverduePayments(String buildingId) async {
     try {
       final payments = await getPaymentsByBuilding(buildingId);
-      final overduePayments = payments.where((payment) => payment.isOverdue).toList();
+      final overduePayments =
+          payments.where((payment) => payment.isOverdue).toList();
 
       print('✅ Found ${overduePayments.length} overdue payments');
       return overduePayments;
