@@ -412,135 +412,151 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(request.title),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('תיאור: ${request.description}'),
-            const SizedBox(height: 8),
-            Text('מיקום: ${request.location ?? 'לא צוין'}'),
-            const SizedBox(height: 8),
-            Text('דווח על ידי: דייר ${request.residentId}'),
-            const SizedBox(height: 8),
-            Text('תאריך: ${_formatDateTime(request.reportedAt)}'),
-            if (request.completedAt != null) ...[
+        content: SizedBox(
+          width: 500,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('תיאור: ${request.description}'),
               const SizedBox(height: 8),
-              Text('הושלם: ${_formatDateTime(request.completedAt!)}'),
+              Text('מיקום: ${request.location ?? 'לא צוין'}'),
+              const SizedBox(height: 8),
+              Text('דווח על ידי: דייר ${request.residentId}'),
+              const SizedBox(height: 8),
+              Text('תאריך: ${_formatDateTime(request.reportedAt)}'),
+              const SizedBox(height: 8),
+              Text('סטטוס: ${request.statusDisplay}'),
+              if (request.completedAt != null) ...[
+                const SizedBox(height: 8),
+                Text('הושלם: ${_formatDateTime(request.completedAt!)}'),
+              ],
             ],
-          ],
+          ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('סגור'),
+          // Wrap actions in a scrollable container for better mobile support
+          SizedBox(
+            width: double.maxFinite,
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('סגור'),
+                ),
+                if (request.status == MaintenanceStatus.pending)
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    onPressed: () async {
+                      Navigator.of(context).pop();
+                      await FirebaseMaintenanceService.rejectRequest(
+                          request.buildingId, request.id, 'נדחה על ידי הוועד');
+                      await FirebaseActivityService.logActivity(
+                        buildingId: request.buildingId,
+                        type: 'maintenance_rejected',
+                        title: 'הבקשה נדחתה',
+                        subtitle: request.title,
+                      );
+                      if (mounted) setState(() {});
+                    },
+                    child: const Text('דחה', style: TextStyle(color: Colors.white)),
+                  ),
+                if (request.status == MaintenanceStatus.pending)
+                  ElevatedButton(
+                    onPressed: () async {
+                      // Put on hold
+                      Navigator.of(context).pop();
+                      await FirebaseMaintenanceService.putOnHold(
+                          request.buildingId, request.id);
+                      await FirebaseActivityService.logActivity(
+                        buildingId: request.buildingId,
+                        type: 'maintenance_on_hold',
+                        title: 'הבקשה הושהתה',
+                        subtitle: request.title,
+                      );
+                      if (mounted) setState(() {});
+                    },
+                    child: const Text('השהה'),
+                  ),
+                ElevatedButton(
+                  onPressed: () async {
+                    // Assign to vendor
+                    final vendor = await _pickVendor(request.buildingId);
+                    if (vendor != null) {
+                      await FirebaseMaintenanceService.assignToVendor(
+                          request.buildingId,
+                          request.id,
+                          vendor['id']!,
+                          vendor['name']!);
+                      await FirebaseActivityService.logActivity(
+                        buildingId: request.buildingId,
+                        type: 'maintenance_assigned',
+                        title: 'הוקצה לספק',
+                        subtitle: vendor['name']!,
+                      );
+                      if (mounted) setState(() {});
+                    }
+                  },
+                  child: const Text('שייך לספק'),
+                ),
+                if (request.status == MaintenanceStatus.pending)
+                  ElevatedButton(
+                    onPressed: () async {
+                      Navigator.of(context).pop();
+                      // Start work in Firestore
+                      await FirebaseMaintenanceService.startWork(
+                          request.buildingId, request.id);
+                      await FirebaseActivityService.logActivity(
+                        buildingId: request.buildingId,
+                        type: 'maintenance_started',
+                        title: 'טיפול התחיל',
+                        subtitle: request.title,
+                      );
+                      setState(() {});
+                    },
+                    child: const Text('התחל טיפול'),
+                  ),
+                if (request.status != MaintenanceStatus.completed)
+                  ElevatedButton(
+                    onPressed: () async {
+                      Navigator.of(context).pop();
+                      // Complete in Firestore
+                      await FirebaseMaintenanceService.completeWork(
+                          request.buildingId, request.id, '');
+                      await FirebaseActivityService.logActivity(
+                        buildingId: request.buildingId,
+                        type: 'maintenance_completed',
+                        title: 'טיפול הושלם',
+                        subtitle: request.title,
+                      );
+                      setState(() {});
+                    },
+                    child: const Text('סמן כהושלם'),
+                  ),
+                if (request.status != MaintenanceStatus.completed &&
+                    request.status != MaintenanceStatus.cancelled)
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                    onPressed: () async {
+                      Navigator.of(context).pop();
+                      await FirebaseMaintenanceService.cancelRequest(
+                          request.buildingId, request.id, 'בוטל על ידי הוועד');
+                      await FirebaseActivityService.logActivity(
+                        buildingId: request.buildingId,
+                        type: 'maintenance_cancelled',
+                        title: 'בקשה בוטלה',
+                        subtitle: request.title,
+                      );
+                      if (mounted) setState(() {});
+                    },
+                    child: const Text('בטל', style: TextStyle(color: Colors.white)),
+                  ),
+              ],
+            ),
           ),
-          if (request.status == MaintenanceStatus.pending)
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await FirebaseMaintenanceService.rejectRequest(
-                    request.buildingId, request.id, 'נדחה על ידי הוועד');
-                await FirebaseActivityService.logActivity(
-                  buildingId: request.buildingId,
-                  type: 'maintenance_rejected',
-                  title: 'הבקשה נדחתה',
-                  subtitle: request.title,
-                );
-                if (mounted) setState(() {});
-              },
-              child: const Text('דחה', style: TextStyle(color: Colors.white)),
-            ),
-          if (request.status == MaintenanceStatus.pending)
-            ElevatedButton(
-              onPressed: () async {
-                // Put on hold
-                Navigator.of(context).pop();
-                await FirebaseMaintenanceService.putOnHold(
-                    request.buildingId, request.id);
-                await FirebaseActivityService.logActivity(
-                  buildingId: request.buildingId,
-                  type: 'maintenance_on_hold',
-                  title: 'הבקשה הושהתה',
-                  subtitle: request.title,
-                );
-                if (mounted) setState(() {});
-              },
-              child: const Text('השהה'),
-            ),
-          ElevatedButton(
-            onPressed: () async {
-              // Assign to vendor
-              final vendor = await _pickVendor(request.buildingId);
-              if (vendor != null) {
-                await FirebaseMaintenanceService.assignToVendor(
-                    request.buildingId,
-                    request.id,
-                    vendor['id']!,
-                    vendor['name']!);
-                await FirebaseActivityService.logActivity(
-                  buildingId: request.buildingId,
-                  type: 'maintenance_assigned',
-                  title: 'הוקצה לספק',
-                  subtitle: vendor['name']!,
-                );
-                if (mounted) setState(() {});
-              }
-            },
-            child: const Text('שייך לספק'),
-          ),
-          if (request.status == MaintenanceStatus.pending)
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                // Start work in Firestore
-                await FirebaseMaintenanceService.startWork(
-                    request.buildingId, request.id);
-                await FirebaseActivityService.logActivity(
-                  buildingId: request.buildingId,
-                  type: 'maintenance_started',
-                  title: 'טיפול התחיל',
-                  subtitle: request.title,
-                );
-                setState(() {});
-              },
-              child: const Text('התחל טיפול'),
-            ),
-          if (request.status != MaintenanceStatus.completed)
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.of(context).pop();
-                // Complete in Firestore
-                await FirebaseMaintenanceService.completeWork(
-                    request.buildingId, request.id, '');
-                await FirebaseActivityService.logActivity(
-                  buildingId: request.buildingId,
-                  type: 'maintenance_completed',
-                  title: 'טיפול הושלם',
-                  subtitle: request.title,
-                );
-                setState(() {});
-              },
-              child: const Text('סמן כהושלם'),
-            ),
-          if (request.status != MaintenanceStatus.completed &&
-              request.status != MaintenanceStatus.cancelled)
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () async {
-                Navigator.of(context).pop();
-                await FirebaseMaintenanceService.cancelRequest(
-                    request.buildingId, request.id, 'בוטל על ידי הוועד');
-                await FirebaseActivityService.logActivity(
-                  buildingId: request.buildingId,
-                  type: 'maintenance_cancelled',
-                  title: 'בקשה בוטלה',
-                  subtitle: request.title,
-                );
-                if (mounted) setState(() {});
-              },
-              child: const Text('בטל', style: TextStyle(color: Colors.white)),
-            ),
         ],
       ),
     );
