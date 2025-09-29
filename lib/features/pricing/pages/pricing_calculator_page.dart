@@ -10,7 +10,7 @@ import '../../../core/models/expense.dart';
 import '../../../services/firebase_financial_service.dart';
 
 class PricingCalculatorPage extends StatefulWidget {
-  const PricingCalculatorPage({Key? key}) : super(key: key);
+  const PricingCalculatorPage({super.key});
 
   @override
   State<PricingCalculatorPage> createState() => _PricingCalculatorPageState();
@@ -37,13 +37,13 @@ class _PricingCalculatorPageState extends State<PricingCalculatorPage> {
   // Form state
   ServiceTier _selectedServiceTier = ServiceTier.standard;
   ContractDuration _selectedContractDuration = ContractDuration.annual;
-  BuildingType _selectedBuildingType = BuildingType.residential;
-  List<BuildingAmenity> _selectedAmenities = [];
-  List<String> _selectedAdditionalServices = [];
+  final BuildingType _selectedBuildingType = BuildingType.residential;
+  final List<BuildingAmenity> _selectedAmenities = [];
+  final List<String> _selectedAdditionalServices = [];
 
-  bool _hasElevator = false;
-  bool _hasStorage = false;
-  bool _hasBalconies = false;
+  final bool _hasElevator = false;
+  final bool _hasStorage = false;
+  final bool _hasBalconies = false;
   bool _isCalculating = false;
   bool _isSavingFinance = false;
 
@@ -204,7 +204,7 @@ class _PricingCalculatorPageState extends State<PricingCalculatorPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            Icon(Icons.calculate, size: 48, color: Colors.indigo),
+            const Icon(Icons.calculate, size: 48, color: Colors.indigo),
             const SizedBox(height: 8),
             const Text(
               'מחשבון מחיר ניהול בניין',
@@ -241,22 +241,22 @@ class _PricingCalculatorPageState extends State<PricingCalculatorPage> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<Building>(
-              value: _selectedBuilding,
+              initialValue: _selectedBuilding,
               decoration: const InputDecoration(
                 labelText: 'בניין',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.apartment),
               ),
               hint: _isLoadingBuildings
-                  ? Row(
+                  ? const Row(
                       children: [
-                        const SizedBox(
+                        SizedBox(
                           width: 16,
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
-                        const SizedBox(width: 8),
-                        const Text('טוען בניינים...'),
+                        SizedBox(width: 8),
+                        Text('טוען בניינים...'),
                       ],
                     )
                   : const Text('בחרו בניין או השאירו ריק'),
@@ -500,7 +500,7 @@ class _PricingCalculatorPageState extends State<PricingCalculatorPage> {
                 style: TextStyle(fontWeight: FontWeight.w500)),
             const SizedBox(height: 8),
             DropdownButtonFormField<ContractDuration>(
-              value: _selectedContractDuration,
+              initialValue: _selectedContractDuration,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
               ),
@@ -615,7 +615,7 @@ class _PricingCalculatorPageState extends State<PricingCalculatorPage> {
                   });
                 },
               );
-            }).toList(),
+            }),
           ],
         ),
       ),
@@ -910,7 +910,7 @@ class _PricingCalculatorPageState extends State<PricingCalculatorPage> {
         final Map<String, double> servicePricing =
             result.breakdown.additionalServicesPricing;
 
-        ExpenseCategory _mapServiceToCategory(String key) {
+        ExpenseCategory mapServiceToCategory(String key) {
           switch (key) {
             case 'security_patrol':
               return ExpenseCategory.security;
@@ -933,7 +933,7 @@ class _PricingCalculatorPageState extends State<PricingCalculatorPage> {
           }
         }
 
-        String _serviceTitle(String key) {
+        String serviceTitle(String key) {
           switch (key) {
             case 'security_patrol':
               return 'סיור אבטחה';
@@ -963,9 +963,9 @@ class _PricingCalculatorPageState extends State<PricingCalculatorPage> {
           final expense = Expense(
             id: 'exp_${DateTime.now().millisecondsSinceEpoch}',
             buildingId: building.id,
-            title: _serviceTitle(serviceKey),
+            title: serviceTitle(serviceKey),
             description: 'נוצר מהמחשבון עבור ${building.name}',
-            category: _mapServiceToCategory(serviceKey),
+            category: mapServiceToCategory(serviceKey),
             status:
                 amount <= 2000 ? ExpenseStatus.approved : ExpenseStatus.pending,
             priority: ExpensePriority.normal,
@@ -984,7 +984,7 @@ class _PricingCalculatorPageState extends State<PricingCalculatorPage> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('נוספה הכנסה והוצאות נלוות מהמחשבון'),
           backgroundColor: Colors.green,
         ),

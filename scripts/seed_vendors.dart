@@ -1,9 +1,10 @@
+import 'package:flutter/widgets.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:vaadly/lib/firebase_options.dart';
-import 'package:vaadly/lib/core/models/maintenance/enums.dart';
-import 'package:vaadly/lib/core/models/maintenance/vendor_profile.dart';
-import 'package:vaadly/lib/core/models/maintenance/vendor_pool.dart';
+import 'package:vaadly/firebase_options.dart';
+import 'package:vaadly/core/models/maintenance/enums.dart';
+import 'package:vaadly/core/models/maintenance/vendor_profile.dart';
+import 'package:vaadly/core/models/maintenance/vendor_pool.dart';
 
 // Run with: flutter pub run dart run scripts/seed_vendors.dart
 // Seeds demo vendors into app_owners/{ownerId}/vendor_profiles and a default pool.

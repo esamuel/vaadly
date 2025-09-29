@@ -1,5 +1,7 @@
 # Vaadly - Multi-Tenant Building Management App
 
+Note: All references in this workspace assume the active project is vaadly.
+
 A comprehensive **multi-tenant** building management solution built with Flutter, Firebase, and AI integration. Vaadly is designed for **Building Committees** to manage their buildings efficiently, while providing **App Owners** with centralized management capabilities.
 
 ## 🏢 **Multi-Tenant Architecture**

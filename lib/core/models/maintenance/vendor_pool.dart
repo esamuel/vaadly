@@ -1,5 +1,4 @@
 import 'package:json_annotation/json_annotation.dart';
-import 'vendor_profile.dart';
 import 'enums.dart';
 
 part 'vendor_pool.g.dart';

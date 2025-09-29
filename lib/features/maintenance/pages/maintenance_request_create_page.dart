@@ -277,7 +277,7 @@ class _MaintenanceRequestCreatePageState extends State<MaintenanceRequestCreateP
                     labelText: 'קטגוריה',
                     border: OutlineInputBorder(),
                   ),
-                  value: _category,
+                  initialValue: _category,
                   items: const [
                     DropdownMenuItem(value: 'plumbing', child: Text('אינסטלציה')),
                     DropdownMenuItem(value: 'electrical', child: Text('חשמל')),
@@ -297,7 +297,7 @@ class _MaintenanceRequestCreatePageState extends State<MaintenanceRequestCreateP
                     labelText: 'עדיפות',
                     border: OutlineInputBorder(),
                   ),
-                  value: _priority,
+                  initialValue: _priority,
                   items: const [
                     DropdownMenuItem(value: 'נמוך', child: Text('נמוך')),
                     DropdownMenuItem(value: 'בינוני', child: Text('בינוני')),
@@ -361,7 +361,7 @@ class _MaintenanceRequestCreatePageState extends State<MaintenanceRequestCreateP
                               labelText: 'בחר ספק (אופציונלי)',
                               border: OutlineInputBorder(),
                             ),
-                            value: _selectedVendorId,
+                            initialValue: _selectedVendorId,
                             items: _committeeVendors
                                 .map((v) => DropdownMenuItem(
                                       value: v['vendorId'] as String,
