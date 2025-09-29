@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/services/building_context_service.dart';
 import '../../services/firebase_activity_service.dart';
 import '../../services/firebase_maintenance_service.dart';
+import '../resources/resource_management_page.dart';
 
 class MaintenanceDashboard extends StatefulWidget {
   const MaintenanceDashboard({super.key});
@@ -104,6 +105,19 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
         title: const Text('🔧 ניהול תחזוקה'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.build),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => ResourceManagementPage(
+                    buildingId: BuildingContextService.buildingId ?? 'demo_building_1',
+                  ),
+                ),
+              );
+            },
+            tooltip: 'ניהול ספקים',
+          ),
           IconButton(
             onPressed: _loadMaintenanceData,
             icon: const Icon(Icons.refresh),
