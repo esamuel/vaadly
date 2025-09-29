@@ -6,6 +6,7 @@ import 'package:vaadly/pages/firebase_residents_page.dart';
 import 'package:vaadly/pages/firebase_maintenance_page.dart';
 import 'package:vaadly/services/firebase_building_service.dart';
 import 'package:vaadly/core/models/building.dart';
+import '../../main_vaadly.dart';
 
 /// App Owner Dashboard - Your main SaaS business control center
 /// This is where YOU manage your entire Vaadly platform
@@ -126,6 +127,21 @@ class _AppOwnerDashboardState extends State<AppOwnerDashboard> {
                     },
                     icon: const Icon(Icons.calculate),
                     label: const Text('מחשבון מחיר'),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const MainNavigationPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.apps),
+                    label: const Text('אפליקציה ראשית'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                 ],
               ),
