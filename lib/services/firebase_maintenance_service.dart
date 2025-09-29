@@ -17,6 +17,47 @@ class FirebaseMaintenanceService {
             .toList());
   }
 
+  static Future<bool> putOnHold(String buildingId, String requestId) async {
+    try {
+      await _firestore
+          .collection('buildings')
+          .doc(buildingId)
+          .collection('maintenance_requests')
+          .doc(requestId)
+          .update({
+        'status': MaintenanceStatus.onHold.toString().split('.').last,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      print('✅ Request put on hold');
+      return true;
+    } catch (e) {
+      print('❌ Error putting request on hold: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> rejectRequest(String buildingId, String requestId, String reason) async {
+    try {
+      await _firestore
+          .collection('buildings')
+          .doc(buildingId)
+          .collection('maintenance_requests')
+          .doc(requestId)
+          .update({
+        'status': MaintenanceStatus.rejected.toString().split('.').last,
+        'rejectionReason': reason,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      print('✅ Request rejected');
+      return true;
+    } catch (e) {
+      print('❌ Error rejecting request: $e');
+      return false;
+    }
+  }
+
   // Get all maintenance requests for a building
   static Future<List<MaintenanceRequest>> getMaintenanceRequests(String buildingId) async {
     try {

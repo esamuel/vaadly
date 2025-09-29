@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../core/models/maintenance_request.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/services/building_context_service.dart';
 import '../../services/firebase_activity_service.dart';
 import '../../services/firebase_maintenance_service.dart';
-import '../../services/firebase_vendor_service.dart';
 
 class MaintenanceDashboard extends StatefulWidget {
   const MaintenanceDashboard({super.key});
@@ -490,6 +490,40 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('סגור'),
           ),
+          if (request.status == MaintenanceStatus.pending)
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await FirebaseMaintenanceService.rejectRequest(
+                    request.buildingId, request.id, 'נדחה על ידי הוועד');
+                await FirebaseActivityService.logActivity(
+                  buildingId: request.buildingId,
+                  type: 'maintenance_rejected',
+                  title: 'הבקשה נדחתה',
+                  subtitle: request.title,
+                );
+                if (mounted) setState(() {});
+              },
+              child: const Text('דחה', style: TextStyle(color: Colors.white)),
+            ),
+          if (request.status == MaintenanceStatus.pending)
+            ElevatedButton(
+              onPressed: () async {
+                // Put on hold
+                Navigator.of(context).pop();
+                await FirebaseMaintenanceService.putOnHold(
+                    request.buildingId, request.id);
+                await FirebaseActivityService.logActivity(
+                  buildingId: request.buildingId,
+                  type: 'maintenance_on_hold',
+                  title: 'הבקשה הושהתה',
+                  subtitle: request.title,
+                );
+                if (mounted) setState(() {});
+              },
+              child: const Text('השהה'),
+            ),
           ElevatedButton(
             onPressed: () async {
               // Assign to vendor
@@ -545,6 +579,24 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
               },
               child: const Text('סמן כהושלם'),
             ),
+          if (request.status != MaintenanceStatus.completed &&
+              request.status != MaintenanceStatus.cancelled)
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await FirebaseMaintenanceService.cancelRequest(
+                    request.buildingId, request.id, 'בוטל על ידי הוועד');
+                await FirebaseActivityService.logActivity(
+                  buildingId: request.buildingId,
+                  type: 'maintenance_cancelled',
+                  title: 'בקשה בוטלה',
+                  subtitle: request.title,
+                );
+                if (mounted) setState(() {});
+              },
+              child: const Text('בטל', style: TextStyle(color: Colors.white)),
+            ),
         ],
       ),
     );
@@ -562,10 +614,14 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
             savedId = await FirebaseMaintenanceService.addMaintenanceRequest(
                 buildingId, request);
           }
-          if (savedId == null) {
-            // Fallback locally
+          // If we're not streaming from Firestore (no building context),
+          // reflect the new item in the local list immediately regardless of Firestore result.
+          if (_requestStream == null) {
             setState(() {
-              _requests.insert(0, request);
+              final reqWithId = savedId != null
+                  ? request.copyWith(id: savedId)
+                  : request;
+              _requests.insert(0, reqWithId);
             });
           }
         },
@@ -574,7 +630,16 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
   }
 
   Future<Map<String, String>?> _pickVendor(String buildingId) async {
-    final vendors = await FirebaseVendorService.getAllVendors();
+    // Load vendors from building committee vendor profiles
+    final buildingRef = FirebaseFirestore.instance.collection('buildings').doc(buildingId);
+    final profilesSnap = await buildingRef.collection('committee_vendor_profiles').get();
+    final vendors = profilesSnap.docs
+        .map((d) => {
+              'id': d.id,
+              'name': (d.data()['name'] ?? 'ספק') as String,
+              'categories': ((d.data()['serviceCategories'] as List?)?.cast<String>() ?? const []).join(', '),
+            })
+        .toList();
     return await showDialog<Map<String, String>>(
       context: context,
       builder: (context) => AlertDialog(
@@ -588,10 +653,9 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
               final v = vendors[index];
               return ListTile(
                 leading: const Icon(Icons.business),
-                title: Text(v.name),
-                subtitle: Text(v.categoriesDisplay),
-                onTap: () =>
-                    Navigator.of(context).pop({'id': v.id, 'name': v.name}),
+                title: Text(v['name'] ?? 'ספק'),
+                subtitle: Text(v['categories'] ?? ''),
+                onTap: () => Navigator.of(context).pop({'id': v['id']!, 'name': v['name']!}),
               );
             },
           ),
@@ -783,8 +847,8 @@ class _AddMaintenanceRequestDialogState
     final now = DateTime.now();
     final request = MaintenanceRequest(
       id: now.millisecondsSinceEpoch.toString(),
-      buildingId: (BuildingContextService.currentBuilding?.buildingId ??
-          'demo_building_1'),
+      buildingId: (BuildingContextService.buildingId ??
+          BuildingContextService.currentBuilding?.buildingId ?? ''),
       residentId: 'committee',
       title: _titleController.text.trim(),
       description: _descController.text.trim(),
