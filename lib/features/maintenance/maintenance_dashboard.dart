@@ -38,74 +38,18 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
     // Simulate loading maintenance requests
     await Future.delayed(const Duration(milliseconds: 500));
 
-    // If building context exists, prefer Firestore stream
-    final buildingId = BuildingContextService.buildingId;
-    if (buildingId != null) {
-      _requestStream = _firestoreStream(buildingId);
-      setState(() => _loading = false);
-      return;
+    // Ensure building context is set to demo building
+    try {
+      if (!BuildingContextService.hasBuilding) {
+        await BuildingContextService.setBuildingContext('demo_building_1');
+      }
+    } catch (e) {
+      print('Warning: Could not set building context: $e');
     }
 
-    _requests = [
-      MaintenanceRequest(
-        id: '1',
-        buildingId: 'building1',
-        residentId: 'resident1',
-        title: 'דליפת מים בקומה 3',
-        description: 'יש דליפת מים מהתקרה בחדר המדרגות',
-        category: MaintenanceCategory.plumbing,
-        priority: MaintenancePriority.high,
-        status: MaintenanceStatus.pending,
-        reportedAt: DateTime.now().subtract(const Duration(hours: 2)),
-        location: 'קומה 3 - חדר מדרגות',
-        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-        updatedAt: DateTime.now().subtract(const Duration(hours: 2)),
-      ),
-      MaintenanceRequest(
-        id: '2',
-        buildingId: 'building1',
-        residentId: 'resident2',
-        title: 'תקלה במעלית',
-        description: 'המעלית לא עובדת כראוי',
-        category: MaintenanceCategory.elevator,
-        priority: MaintenancePriority.urgent,
-        status: MaintenanceStatus.inProgress,
-        reportedAt: DateTime.now().subtract(const Duration(days: 1)),
-        location: 'מעלית מרכזית',
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-        updatedAt: DateTime.now().subtract(const Duration(days: 1)),
-      ),
-      MaintenanceRequest(
-        id: '3',
-        buildingId: 'building1',
-        residentId: 'resident3',
-        title: 'תיקון דלת כניסה',
-        description: 'הדלת הראשית לא נסגרת כראוי',
-        category: MaintenanceCategory.general,
-        priority: MaintenancePriority.normal,
-        status: MaintenanceStatus.completed,
-        reportedAt: DateTime.now().subtract(const Duration(days: 3)),
-        location: 'כניסה ראשית',
-        completedAt: DateTime.now().subtract(const Duration(hours: 6)),
-        createdAt: DateTime.now().subtract(const Duration(days: 3)),
-        updatedAt: DateTime.now().subtract(const Duration(hours: 6)),
-      ),
-      MaintenanceRequest(
-        id: '4',
-        buildingId: 'building1',
-        residentId: 'resident4',
-        title: 'ניקוי גינה',
-        description: 'הגינה צריכה ניקוי וטיפוח',
-        category: MaintenanceCategory.gardening,
-        priority: MaintenancePriority.low,
-        status: MaintenanceStatus.pending,
-        reportedAt: DateTime.now().subtract(const Duration(days: 2)),
-        location: 'גינה ציבורית',
-        createdAt: DateTime.now().subtract(const Duration(days: 2)),
-        updatedAt: DateTime.now().subtract(const Duration(days: 2)),
-      ),
-    ];
-
+    // If building context exists, prefer Firestore stream
+    final buildingId = BuildingContextService.buildingId ?? 'demo_building_1';
+    _requestStream = _firestoreStream(buildingId);
     setState(() => _loading = false);
   }
 
@@ -623,6 +567,20 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
                   : request;
               _requests.insert(0, reqWithId);
             });
+          }
+          // If Firestore write failed but we are streaming, still show locally as a fallback.
+          if (_requestStream != null && savedId == null) {
+            if (mounted) {
+              setState(() {
+                _requests.insert(0, request);
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('שגיאה בשמירה לענן – הבקשה נוספה מקומית בלבד'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
           }
         },
       ),
