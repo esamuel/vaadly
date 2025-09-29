@@ -408,6 +408,10 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
   }
 
   void _showRequestDetails(MaintenanceRequest request) {
+    print('🔍 Debug: Showing request details for ${request.title}');
+    print('🔍 Debug: Request status: ${request.status}');
+    print('🔍 Debug: Request status display: ${request.statusDisplay}');
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -427,6 +431,8 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
               Text('תאריך: ${_formatDateTime(request.reportedAt)}'),
               const SizedBox(height: 8),
               Text('סטטוס: ${request.statusDisplay}'),
+              const SizedBox(height: 8),
+              Text('🔍 Debug Status: ${request.status.toString()}'),
               if (request.completedAt != null) ...[
                 const SizedBox(height: 8),
                 Text('הושלם: ${_formatDateTime(request.completedAt!)}'),
@@ -447,23 +453,24 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('סגור'),
                 ),
-                if (request.status == MaintenanceStatus.pending)
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                    onPressed: () async {
-                      Navigator.of(context).pop();
-                      await FirebaseMaintenanceService.rejectRequest(
-                          request.buildingId, request.id, 'נדחה על ידי הוועד');
-                      await FirebaseActivityService.logActivity(
-                        buildingId: request.buildingId,
-                        type: 'maintenance_rejected',
-                        title: 'הבקשה נדחתה',
-                        subtitle: request.title,
-                      );
-                      if (mounted) setState(() {});
-                    },
-                    child: const Text('דחה', style: TextStyle(color: Colors.white)),
-                  ),
+                // Always show reject button for testing
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  onPressed: () async {
+                    print('🔍 Debug: Reject button pressed');
+                    Navigator.of(context).pop();
+                    await FirebaseMaintenanceService.rejectRequest(
+                        request.buildingId, request.id, 'נדחה על ידי הוועד');
+                    await FirebaseActivityService.logActivity(
+                      buildingId: request.buildingId,
+                      type: 'maintenance_rejected',
+                      title: 'הבקשה נדחתה',
+                      subtitle: request.title,
+                    );
+                    if (mounted) setState(() {});
+                  },
+                  child: const Text('דחה', style: TextStyle(color: Colors.white)),
+                ),
                 if (request.status == MaintenanceStatus.pending)
                   ElevatedButton(
                     onPressed: () async {
@@ -483,9 +490,11 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
                   ),
                 ElevatedButton(
                   onPressed: () async {
+                    print('🔍 Debug: Assign vendor button pressed');
                     // Assign to vendor
                     final vendor = await _pickVendor(request.buildingId);
                     if (vendor != null) {
+                      print('🔍 Debug: Selected vendor: ${vendor['name']}');
                       await FirebaseMaintenanceService.assignToVendor(
                           request.buildingId,
                           request.id,
@@ -498,6 +507,8 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
                         subtitle: vendor['name']!,
                       );
                       if (mounted) setState(() {});
+                    } else {
+                      print('🔍 Debug: No vendor selected');
                     }
                   },
                   child: const Text('שייך לספק'),
@@ -519,23 +530,23 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
                     },
                     child: const Text('התחל טיפול'),
                   ),
-                if (request.status != MaintenanceStatus.completed)
-                  ElevatedButton(
-                    onPressed: () async {
-                      Navigator.of(context).pop();
-                      // Complete in Firestore
-                      await FirebaseMaintenanceService.completeWork(
-                          request.buildingId, request.id, '');
-                      await FirebaseActivityService.logActivity(
-                        buildingId: request.buildingId,
-                        type: 'maintenance_completed',
-                        title: 'טיפול הושלם',
-                        subtitle: request.title,
-                      );
-                      setState(() {});
-                    },
-                    child: const Text('סמן כהושלם'),
-                  ),
+                ElevatedButton(
+                  onPressed: () async {
+                    print('🔍 Debug: Complete button pressed');
+                    Navigator.of(context).pop();
+                    // Complete in Firestore
+                    await FirebaseMaintenanceService.completeWork(
+                        request.buildingId, request.id, '');
+                    await FirebaseActivityService.logActivity(
+                      buildingId: request.buildingId,
+                      type: 'maintenance_completed',
+                      title: 'טיפול הושלם',
+                      subtitle: request.title,
+                    );
+                    setState(() {});
+                  },
+                  child: const Text('סמן כהושלם'),
+                ),
                 if (request.status != MaintenanceStatus.completed &&
                     request.status != MaintenanceStatus.cancelled)
                   ElevatedButton(
