@@ -39,17 +39,25 @@ class _MaintenanceRequestCreatePageState extends State<MaintenanceRequestCreateP
   Future<void> _loadCommitteeVendors() async {
     setState(() => _loadingVendors = true);
     try {
-      final vendorsSnap = await FirebaseFirestore.instance
-          .collection('buildings')
-          .doc(widget.buildingId)
-          .collection('committee_vendor_profiles')
-          .get();
+      final db = FirebaseFirestore.instance;
+      final buildingRef = db.collection('buildings').doc(widget.buildingId);
+      final poolDoc = await buildingRef.collection('committee_vendor_pools').doc('default').get();
+      final vendorIds = ((poolDoc.data() ?? const {})['vendorIds'] as List?)?.cast<String>() ?? const [];
 
-      _committeeVendors = vendorsSnap.docs.map((d) {
-        final data = d.data();
-        data['vendorId'] = d.id;
-        return data;
-      }).toList();
+      _committeeVendors = [];
+      if (vendorIds.isNotEmpty) {
+        // Firestore whereIn supports up to 10 values; chunk if needed (MVP: first 10)
+        final batchIds = vendorIds.take(10).toList();
+        final profilesSnap = await buildingRef
+            .collection('committee_vendor_profiles')
+            .where(FieldPath.documentId, whereIn: batchIds)
+            .get();
+        _committeeVendors = profilesSnap.docs.map((d) {
+          final data = d.data();
+          data['vendorId'] = d.id;
+          return data;
+        }).toList();
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

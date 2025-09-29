@@ -102,11 +102,72 @@ class MaintenanceService {
 
     return matches;
   }
+
+  // Settings helpers (MVP)
+  Future<Map<String, dynamic>?> getBuildingMaintenanceSettings(String buildingId) async {
+    final doc = await _buildingSettings(buildingId).doc('maintenance').get();
+    return doc.data();
+  }
+
+  Future<void> saveBuildingMaintenanceSettings(String buildingId, Map<String, dynamic> settings) async {
+    await _buildingSettings(buildingId).doc('maintenance').set(settings, SetOptions(merge: true));
+  }
+
+  // Resolve vendors from a committee pool document by poolId
+  Future<List<VendorProfile>> getCommitteePoolVendors(String buildingId, String poolId) async {
+    final poolDoc = await _buildingCommitteePools(buildingId).doc(poolId).get();
+    if (!poolDoc.exists) return [];
+    final data = poolDoc.data() as Map<String, dynamic>;
+    final vendorIds = (data['vendorIds'] as List?)?.cast<String>() ?? const [];
+    // For MVP, committee vendor profiles are under buildings/{id}/committee_vendor_profiles
+    final profilesColl = _db.collection('buildings').doc(buildingId).collection('committee_vendor_profiles');
+    final vendors = <VendorProfile>[];
+    if (vendorIds.isEmpty) return vendors;
+    final snaps = await profilesColl.where(FieldPath.documentId, whereIn: vendorIds.take(10).toList()).get();
+    for (final d in snaps.docs) {
+      final v = VendorProfile.fromJson(d.data());
+      vendors.add(v);
+    }
+    return vendors;
+  }
+
+  // Selection policy: start with committee vendors; include app owner vendors only when threshold triggers
+  Future<List<VendorProfile>> selectVendors({
+    required String buildingId,
+    required ServiceCategory category,
+    String? region,
+    required ManagementMode managementMode,
+    CostPolicy policy = const CostPolicy(),
+    String committeePoolId = 'default',
+  }) async {
+    final List<VendorProfile> candidates = [];
+
+    // Committee vendors first
+    final committeeVendors = await getCommitteePoolVendors(buildingId, committeePoolId);
+    candidates.addAll(committeeVendors.where((v) {
+      final catOk = v.serviceCategories.contains(category);
+      final regionOk = region == null || v.coverageRegions.contains(region);
+      return catOk && regionOk;
+    }));
+
+    final shouldIncludeOwnerPool = managementMode == ManagementMode.appOwnerManaged
+        ? true
+        : false; // Committee-managed: include only when policy triggers (stubbed false for MVP input-free state)
+
+    if (shouldIncludeOwnerPool) {
+      final ownerMatches = await matchVendors(category: category, region: region, includeOwnerPool: true);
+      // Avoid duplicates by vendorId where possible (assume vendorId unique in owner profiles)
+      final existingIds = candidates.map((v) => v.vendorId).toSet();
+      candidates.addAll(ownerMatches.where((v) => !existingIds.contains(v.vendorId)));
+    }
+
+    return candidates;
+  }
 }
 
 import '../models/maintenance_request.dart';
 
-class MaintenanceService {
+class MaintenanceDemoService {
   // In-memory storage for now (will be replaced with Firebase later)
   static final List<MaintenanceRequest> _requests = [];
   static int _nextRequestId = 1;

@@ -1,8 +1,3 @@
-import 'package:json_annotation/json_annotation.dart';
-
-part 'cost_policy.g.dart';
-
-@JsonSerializable(explicitToJson: true)
 class CostPolicy {
   final int autoCompareThresholdIls; // e.g., 500
   final int minQuotes; // e.g., 2
@@ -18,6 +13,21 @@ class CostPolicy {
     this.weightSla = 0.15,
   });
 
-  factory CostPolicy.fromJson(Map<String, dynamic> json) => _$CostPolicyFromJson(json);
-  Map<String, dynamic> toJson() => _$CostPolicyToJson(this);
-}
+  factory CostPolicy.fromJson(Map<String, dynamic> json) {
+    return CostPolicy(
+      autoCompareThresholdIls: (json['autoCompareThresholdIls'] as num?)?.toInt() ?? 500,
+      minQuotes: (json['minQuotes'] as num?)?.toInt() ?? 2,
+      weightPrice: (json['weightPrice'] as num?)?.toDouble() ?? 0.6,
+      weightRating: (json['weightRating'] as num?)?.toDouble() ?? 0.25,
+      weightSla: (json['weightSla'] as num?)?.toDouble() ?? 0.15,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'autoCompareThresholdIls': autoCompareThresholdIls,
+        'minQuotes': minQuotes,
+        'weightPrice': weightPrice,
+        'weightRating': weightRating,
+        'weightSla': weightSla,
+      };
+  }

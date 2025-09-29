@@ -62,7 +62,7 @@ class _MaintenanceRequestDetailsState extends State<MaintenanceRequestDetails> {
       return;
     }
 
-    final success = MaintenanceService.assignToVendor(
+    final success = MaintenanceDemoService.assignToVendor(
       _request.id,
       'vendor_${DateTime.now().millisecondsSinceEpoch}',
       _vendorNameController.text.trim(),
@@ -70,7 +70,7 @@ class _MaintenanceRequestDetailsState extends State<MaintenanceRequestDetails> {
 
     if (success) {
       setState(() {
-        _request = MaintenanceService.getRequestById(_request.id)!;
+        _request = MaintenanceDemoService.getRequestById(_request.id)!;
       });
       _updateRequest();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -83,10 +83,10 @@ class _MaintenanceRequestDetailsState extends State<MaintenanceRequestDetails> {
   }
 
   void _startWork() {
-    final success = MaintenanceService.startWork(_request.id);
+    final success = MaintenanceDemoService.startWork(_request.id);
     if (success) {
       setState(() {
-        _request = MaintenanceService.getRequestById(_request.id)!;
+        _request = MaintenanceDemoService.getRequestById(_request.id)!;
       });
       _updateRequest();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -109,13 +109,13 @@ class _MaintenanceRequestDetailsState extends State<MaintenanceRequestDetails> {
       return;
     }
 
-    final success = MaintenanceService.completeWork(
+    final success = MaintenanceDemoService.completeWork(
       _request.id,
       _costController.text.trim(),
     );
     if (success) {
       setState(() {
-        _request = MaintenanceService.getRequestById(_request.id)!;
+        _request = MaintenanceDemoService.getRequestById(_request.id)!;
       });
       _updateRequest();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -128,10 +128,10 @@ class _MaintenanceRequestDetailsState extends State<MaintenanceRequestDetails> {
   }
 
   void _putOnHold() {
-    final success = MaintenanceService.putOnHold(_request.id);
+    final success = MaintenanceDemoService.putOnHold(_request.id);
     if (success) {
       setState(() {
-        _request = MaintenanceService.getRequestById(_request.id)!;
+        _request = MaintenanceDemoService.getRequestById(_request.id)!;
       });
       _updateRequest();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -154,13 +154,13 @@ class _MaintenanceRequestDetailsState extends State<MaintenanceRequestDetails> {
       return;
     }
 
-    final success = MaintenanceService.rejectRequest(
+    final success = MaintenanceDemoService.rejectRequest(
       _request.id,
       _rejectionReasonController.text.trim(),
     );
     if (success) {
       setState(() {
-        _request = MaintenanceService.getRequestById(_request.id)!;
+        _request = MaintenanceDemoService.getRequestById(_request.id)!;
       });
       _updateRequest();
       Navigator.of(context).pop();
@@ -184,13 +184,13 @@ class _MaintenanceRequestDetailsState extends State<MaintenanceRequestDetails> {
       return;
     }
 
-    final success = MaintenanceService.cancelRequest(
+    final success = MaintenanceDemoService.cancelRequest(
       _request.id,
       _cancellationReasonController.text.trim(),
     );
     if (success) {
       setState(() {
-        _request = MaintenanceService.getRequestById(_request.id)!;
+        _request = MaintenanceDemoService.getRequestById(_request.id)!;
       });
       _updateRequest();
       Navigator.of(context).pop();
@@ -837,7 +837,7 @@ class _MaintenanceRequestDetailsState extends State<MaintenanceRequestDetails> {
           ElevatedButton(
             onPressed: () {
               Navigator.of(context).pop();
-              MaintenanceService.deleteRequest(_request.id);
+              MaintenanceDemoService.deleteRequest(_request.id);
               Navigator.of(context).pop();
               _updateRequest();
               ScaffoldMessenger.of(context).showSnackBar(

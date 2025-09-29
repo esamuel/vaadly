@@ -1,8 +1,3 @@
-import 'package:json_annotation/json_annotation.dart';
-
-part 'quote.g.dart';
-
-@JsonSerializable()
 class Quote {
   final String vendorId;
   final double subtotalIls; // before VAT
@@ -21,6 +16,23 @@ class Quote {
   double get vatAmountIls => subtotalIls * vatRate;
   double get totalIls => subtotalIls + vatAmountIls;
 
-  factory Quote.fromJson(Map<String, dynamic> json) => _$QuoteFromJson(json);
-  Map<String, dynamic> toJson() => _$QuoteToJson(this);
+  factory Quote.fromJson(Map<String, dynamic> json) {
+    return Quote(
+      vendorId: json['vendorId'] as String,
+      subtotalIls: (json['subtotalIls'] as num).toDouble(),
+      vatRate: (json['vatRate'] as num).toDouble(),
+      slaHours: (json['slaHours'] as num).toDouble(),
+      validUntil: DateTime.parse(json['validUntil'] as String),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'vendorId': vendorId,
+      'subtotalIls': subtotalIls,
+      'vatRate': vatRate,
+      'slaHours': slaHours,
+      'validUntil': validUntil.toIso8601String(),
+    };
+  }
 }
