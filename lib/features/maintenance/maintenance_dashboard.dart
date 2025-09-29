@@ -592,36 +592,36 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
       context: context,
       builder: (context) => _AddMaintenanceRequestDialog(
         onSubmit: (request) async {
+          print('🔍 Debug: Submitting new request: ${request.title}');
+          
           // Persist to Firestore if possible
           final buildingId = request.buildingId;
           String? savedId;
           if (buildingId.isNotEmpty) {
+            print('🔍 Debug: Saving to Firestore for building: $buildingId');
             savedId = await FirebaseMaintenanceService.addMaintenanceRequest(
                 buildingId, request);
+            print('🔍 Debug: Firestore save result: $savedId');
           }
-          // If we're not streaming from Firestore (no building context),
-          // reflect the new item in the local list immediately regardless of Firestore result.
-          if (_requestStream == null) {
+          
+          // Always update local state for immediate feedback
+          if (mounted) {
             setState(() {
               final reqWithId = savedId != null
                   ? request.copyWith(id: savedId)
                   : request;
               _requests.insert(0, reqWithId);
             });
-          }
-          // If Firestore write failed but we are streaming, still show locally as a fallback.
-          if (_requestStream != null && savedId == null) {
-            if (mounted) {
-              setState(() {
-                _requests.insert(0, request);
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('שגיאה בשמירה לענן – הבקשה נוספה מקומית בלבד'),
-                  backgroundColor: Colors.orange,
-                ),
-              );
-            }
+            
+            // Show success message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(savedId != null 
+                    ? 'בקשת תחזוקה נשמרה בהצלחה' 
+                    : 'בקשת תחזוקה נוספה מקומית'),
+                backgroundColor: savedId != null ? Colors.green : Colors.orange,
+              ),
+            );
           }
         },
       ),
@@ -818,10 +818,18 @@ class _AddMaintenanceRequestDialogState
         return 'אינסטלציה';
       case MaintenanceCategory.electrical:
         return 'חשמל';
-      case MaintenanceCategory.elevator:
-        return 'מעלית';
+      case MaintenanceCategory.hvac:
+        return 'מיזוג אוויר';
+      case MaintenanceCategory.cleaning:
+        return 'ניקיון';
       case MaintenanceCategory.gardening:
         return 'גינון';
+      case MaintenanceCategory.elevator:
+        return 'מעליות';
+      case MaintenanceCategory.security:
+        return 'אבטחה';
+      case MaintenanceCategory.structural:
+        return 'מבני';
       case MaintenanceCategory.general:
       default:
         return 'כללי';
@@ -844,10 +852,17 @@ class _AddMaintenanceRequestDialogState
   void _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final now = DateTime.now();
+    
+    // Ensure building ID is set
+    final buildingId = BuildingContextService.buildingId ??
+        BuildingContextService.currentBuilding?.buildingId ?? 
+        'demo_building_1';
+    
+    print('🔍 Debug: Creating request for building: $buildingId');
+    
     final request = MaintenanceRequest(
       id: now.millisecondsSinceEpoch.toString(),
-      buildingId: (BuildingContextService.buildingId ??
-          BuildingContextService.currentBuilding?.buildingId ?? ''),
+      buildingId: buildingId,
       residentId: 'committee',
       title: _titleController.text.trim(),
       description: _descController.text.trim(),
