@@ -26,6 +26,7 @@ enum MaintenanceCategory {
   elevator,     // מעליות
   security,     // אבטחה
   structural,   // מבני
+  sanitation,   // תברואה
   general,      // כללי
 }
 
@@ -143,6 +144,8 @@ class MaintenanceRequest {
         return 'אבטחה';
       case MaintenanceCategory.structural:
         return 'מבני';
+      case MaintenanceCategory.sanitation:
+        return 'תברואה';
       case MaintenanceCategory.general:
         return 'כללי';
     }

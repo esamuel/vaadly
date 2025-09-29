@@ -1013,6 +1013,10 @@ class _FirebaseMaintenancePageState extends State<FirebaseMaintenancePage> {
         return Icons.security;
       case MaintenanceCategory.structural:
         return Icons.foundation;
+      case MaintenanceCategory.sanitation:
+        return Icons.cleaning_services;
+      case MaintenanceCategory.sanitation:
+        return 'תברואה';
       case MaintenanceCategory.general:
         return Icons.build;
     }
@@ -1036,6 +1040,8 @@ class _FirebaseMaintenancePageState extends State<FirebaseMaintenancePage> {
         return 'אבטחה';
       case MaintenanceCategory.structural:
         return 'מבני';
+      case MaintenanceCategory.sanitation:
+        return 'תברואה';
       case MaintenanceCategory.general:
         return 'כללי';
     }
@@ -1359,6 +1365,8 @@ class _AddMaintenanceRequestDialogState extends State<_AddMaintenanceRequestDial
         return 'אבטחה';
       case MaintenanceCategory.structural:
         return 'מבני';
+      case MaintenanceCategory.sanitation:
+        return 'תברואה';
       case MaintenanceCategory.general:
         return 'כללי';
     }

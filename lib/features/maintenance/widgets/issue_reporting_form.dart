@@ -581,6 +581,8 @@ class _IssueReportingFormState extends State<IssueReportingForm> {
         return 'אבטחה';
       case MaintenanceCategory.structural:
         return 'מבני';
+      case MaintenanceCategory.sanitation:
+        return 'תברואה';
       case MaintenanceCategory.general:
         return 'כללי';
     }
