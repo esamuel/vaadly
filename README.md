@@ -197,7 +197,16 @@ This spec is the source of truth for data access, auth, and backend enforcement.
 - **Tenant Isolation**: Efficient data separation and access
 - **Caching Strategies**: Smart caching for improved performance
 - **Offline Support**: Local data storage for reliability
-- **Real-time Updates**: Live synchronization across all devices
+  - **Real-time Updates**: Live synchronization across all devices
+
+## 🧰 MCP Tooling (Agent Interface)
+
+- Overview: See `MCP_SPEC.md` for the server-side tool layer used by the AI/orchestrator. Policies and tier gating live in `policies/mcp_tier_policy.yaml`.
+- Local dev (Functions + Emulator + MCP):
+  - `npm ci && npm run build` in `functions/` (TypeScript → JS).
+  - `./scripts/run_mcp_emulator.sh` to start Firebase emulators and the MCP server.
+- CI/CD: MCP builds run independently of Flutter (`flutter analyze/test/build` unaffected).
+- Security: MCP runs server-side only; the Flutter app never holds MCP credentials.
 
 ## 🗺️ **Development Roadmap**
 

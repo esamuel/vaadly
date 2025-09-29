@@ -165,7 +165,6 @@ class MaintenanceService {
   }
 }
 
-import '../models/maintenance_request.dart';
 
 class MaintenanceDemoService {
   // In-memory storage for now (will be replaced with Firebase later)

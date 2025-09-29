@@ -1,0 +1,101 @@
+# Role/Tier policy for Vaadly MCP tools (Functions bundle)
+
+version: 1
+
+limits:
+  rateLimitsRpm:
+    tier1_read: 120
+    tier1_write: 60
+    tier2_read: 60
+    tier2_write: 20
+    tier3_read: 30
+    tier3_write: 10
+  spendCaps:
+    tier1_per_op: 5000
+    tier2_per_op: 1500
+    tier3_per_op: 0
+  idempotency:
+    required_for_writes: true
+
+access:
+  tier1:
+    allow:
+      - getBuilding
+      - listUnits
+      - getResident
+      - listVendors
+      - createMaintenanceRequest
+      - assignVendor
+      - scheduleVisit
+      - updateRequestStatus
+      - getMaintenanceStats
+      - createOwnerVendor
+      - createCommitteeVendor
+      - createInvoice
+      - approveAndPay
+      - startVote
+      - castVote
+  tier2:
+    allow:
+      - getBuilding
+      - listUnits
+      - getResident
+      - listVendors
+      - createMaintenanceRequest
+      - assignVendor
+      - scheduleVisit
+      - updateRequestStatus
+      - getMaintenanceStats
+      - createCommitteeVendor
+      - createInvoice
+      - approveAndPay
+      - startVote
+      - castVote
+    deny:
+      - createOwnerVendor
+  tier3:
+    allow:
+      - getBuilding
+      - getResident
+      - createMaintenanceRequest
+      - updateRequestStatus
+      - castVote
+    deny:
+      - listUnits
+      - listVendors
+      - assignVendor
+      - scheduleVisit
+      - getMaintenanceStats
+      - createCommitteeVendor
+      - createOwnerVendor
+      - createInvoice
+      - approveAndPay
+      - startVote
+
+policies:
+  automations:
+    tier1:
+      auto_assign_vendor: true
+      auto_schedule_visit: true
+      auto_pay_below_cap: true
+    tier2:
+      auto_assign_vendor: true
+      auto_schedule_visit: true
+      auto_pay_below_cap: true
+    tier3:
+      auto_assign_vendor: false
+      auto_schedule_visit: false
+      auto_pay_below_cap: false
+  approvals:
+    tier1_amount_threshold: 5000
+    tier2_amount_threshold: 1500
+  logging:
+    redactions:
+      - paymentMethodId
+      - cardNumber
+      - cvv
+      - email
+      - phone
+    store_full_inputs: false
+    store_full_outputs: false
+

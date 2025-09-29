@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.exportUsersCsvDev = exports.generatePasswordResetLinkForOwner = exports.listUsersForOwner = exports.syncClaimsOnMembershipWrite = exports.seedMembership = exports.health = exports.ai_intake = exports.sendNotifyEnhanced = exports.sendNotify = exports.payments = exports.dispatchCron = exports.onWorkOrderCreate = void 0;
+exports.exportUsersCsvDev = exports.generatePasswordResetLinkForOwner = exports.listUsersForOwner = exports.syncClaimsOnMembershipWrite = exports.seedMembership = exports.mcp_execute = exports.mcp_tools = exports.mcp_ping = exports.health = exports.ai_intake = exports.sendNotifyEnhanced = exports.sendNotify = exports.payments = exports.dispatchCron = exports.onWorkOrderCreate = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions/v2"));
 const https_1 = require("firebase-functions/v2/https");
@@ -43,6 +43,7 @@ const webhooks_1 = require("./webhooks");
 const notify_1 = require("./notify");
 const notify_enhanced_1 = require("./notify_enhanced");
 const ai_intake_1 = require("./ai_intake");
+const mcp_1 = require("./mcp");
 // Initialize Firebase Admin
 admin.initializeApp();
 // Helpers to read runtime config (env or functions.config)
@@ -91,6 +92,10 @@ exports.health = functions.https.onRequest((req, res) => {
         service: 'vaadly-functions'
     });
 });
+// ========== MCP HTTP STUBS ==========
+exports.mcp_ping = mcp_1.mcpPing;
+exports.mcp_tools = mcp_1.mcpTools;
+exports.mcp_execute = mcp_1.mcpExecute;
 // Helper: ensure caller is an App Owner (for callable functions)
 async function ensureAppOwnerFromAuth(auth) {
     const email = String(auth?.token?.email || '').toLowerCase().trim();

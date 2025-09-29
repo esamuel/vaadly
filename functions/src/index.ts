@@ -7,6 +7,7 @@ import { paymentWebhook } from './webhooks';
 import { notify } from './notify';
 import { notifyEnhanced } from './notify_enhanced';
 import { aiIntake } from './ai_intake';
+import { mcpPing, mcpTools, mcpExecute } from './mcp';
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -66,6 +67,11 @@ export const health = functions.https.onRequest((req, res) => {
     service: 'vaadly-functions'
   });
 });
+
+// ========== MCP HTTP STUBS ==========
+export const mcp_ping = mcpPing;
+export const mcp_tools = mcpTools;
+export const mcp_execute = mcpExecute;
 
 // Helper: ensure caller is an App Owner (for callable functions)
 async function ensureAppOwnerFromAuth(auth: any) {
