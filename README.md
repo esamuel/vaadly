@@ -39,6 +39,7 @@ A comprehensive **multi-tenant** building management solution built with Flutter
 - **Unit Management**: Track all units and their status
 - **Maintenance System**: AI-powered issue classification and resolution
 - **Financial Management**: Track expenses, invoices, and payments
+- **Voting System**: Democratic decision-making for building matters ([View Details](vote.md))
 - **Communication**: Announcements and resident notifications
 
 ### **For Residents**
@@ -206,11 +207,12 @@ This spec is the source of truth for data access, auth, and backend enforcement.
 
 ### **Phase 2: Core Features**
 - 🔄 Maintenance management system
-- 🔄 Financial management
+- ✅ Financial management & pricing calculator
 - 🔄 AI-powered features
 - 🔄 Communication system
 
 ### **Phase 3: Advanced Features**
+- 📋 **Voting System**: Democratic decision-making for building matters ([View Details](vote.md))
 - 📋 Advanced analytics and reporting
 - 📋 Mobile app optimization
 - 📋 API integrations

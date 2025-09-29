@@ -309,15 +309,50 @@ class _FirebaseVendorPageState extends State<FirebaseVendorPage>
                             ),
                           ],
                         ),
-                        trailing: vendor.hourlyRate != null
-                            ? Text(
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (vendor.hourlyRate != null)
+                              Text(
                                 '₪${vendor.hourlyRate!.toStringAsFixed(0)}/שעה',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Colors.green,
                                 ),
-                              )
-                            : null,
+                              ),
+                            PopupMenuButton<String>(
+                              onSelected: (value) {
+                                if (value == 'edit') {
+                                  _editVendor(vendor);
+                                } else if (value == 'delete') {
+                                  _deleteVendor(vendor);
+                                }
+                              },
+                              itemBuilder: (BuildContext context) => [
+                                const PopupMenuItem<String>(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.edit, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('ערוך'),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem<String>(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete, size: 18, color: Colors.red),
+                                      SizedBox(width: 8),
+                                      Text('מחק', style: TextStyle(color: Colors.red)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                         children: [
                           Padding(
                             padding: const EdgeInsets.all(16),
@@ -932,6 +967,87 @@ class _FirebaseVendorPageState extends State<FirebaseVendorPage>
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('סגור'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteVendor(Vendor vendor) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('מחק ספק'),
+        content: Text('האם אתה בטוח שברצונך למחוק את הספק "${vendor.name}"?\nפעולה זו אינה הפיכה.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('ביטול'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(context).pop(); // Close dialog first
+              
+              // Show loading
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const AlertDialog(
+                  content: Row(
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(width: 16),
+                      Text('מוחק ספק...'),
+                    ],
+                  ),
+                ),
+              );
+
+              try {
+                final success = await FirebaseVendorService.deleteVendor(vendor.id);
+                
+                // Close loading dialog
+                if (mounted) Navigator.of(context).pop();
+
+                if (success) {
+                  _loadData(); // Refresh the data
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('הספק "${vendor.name}" נמחק בהצלחה'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } else {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('שגיאה במחיקת הספק'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                // Close loading dialog if still open
+                if (mounted) Navigator.of(context).pop();
+                
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('שגיאה: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('מחק'),
           ),
         ],
       ),

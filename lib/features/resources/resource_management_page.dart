@@ -588,33 +588,73 @@ class _VendorsListState extends State<_VendorsList> {
                   'דירוג: ${'⭐' * vendor.rating!.round()} (${vendor.rating!.toStringAsFixed(1)})'),
           ],
         ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: vendor.statusColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: vendor.statusColor.withOpacity(0.3)),
-              ),
-              child: Text(
-                vendor.statusDisplay,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: vendor.statusColor,
-                  fontWeight: FontWeight.bold,
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: vendor.statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: vendor.statusColor.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    vendor.statusDisplay,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: vendor.statusColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
-              ),
+                if (vendor.hourlyRate != null)
+                  Text(
+                    '₪${vendor.hourlyRate!.toInt()}/שעה',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+              ],
             ),
-            if (vendor.hourlyRate != null)
-              Text(
-                '₪${vendor.hourlyRate!.toInt()}/שעה',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey[600],
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert),
+              onSelected: (value) {
+                switch (value) {
+                  case 'edit':
+                    _editVendor(context, vendor);
+                    break;
+                  case 'delete':
+                    _deleteVendor(context, vendor);
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit, size: 20),
+                      SizedBox(width: 8),
+                      Text('ערוך'),
+                    ],
+                  ),
                 ),
-              ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete, size: 20, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('מחק', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
         onTap: () => _showVendorDetails(context, vendor),
@@ -697,6 +737,75 @@ class _VendorsListState extends State<_VendorsList> {
         ],
       ),
     );
+  }
+
+  void _editVendor(BuildContext context, Vendor vendor) {
+    // TODO: Implement edit vendor functionality
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('עריכת ספק - בקרוב...'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
+  void _deleteVendor(BuildContext context, Vendor vendor) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('מחק ספק'),
+        content: Text('האם אתה בטוח שברצונך למחוק את הספק "${vendor.name}"?\nפעולה זו אינה ניתנת לביטול.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('בטל'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('מחק'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      try {
+        final success = await FirebaseVendorService.deleteVendor(vendor.id);
+        if (success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('הספק נמחק בהצלחה'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          // Log activity
+          await FirebaseActivityService.logActivity(
+            buildingId: widget.buildingId,
+            type: 'vendor_deleted',
+            title: 'ספק נמחק',
+            subtitle: vendor.name,
+          );
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('שגיאה במחיקת הספק'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('שגיאה במחיקת הספק: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
   }
 }
 

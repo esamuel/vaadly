@@ -5,6 +5,7 @@ import '../../core/models/building.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/building_context_service.dart';
 import '../../core/utils/phone_number_formatter.dart';
+import '../maintenance/pages/maintenance_request_create_page.dart';
 
 class BuildingSettingsDashboard extends StatefulWidget {
   final String? buildingId;
@@ -31,13 +32,21 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
   final _managerPhoneController = TextEditingController();
   final _managerEmailController = TextEditingController();
 
+  // Maintenance settings (RTL/Hebrew labels handled in UI)
+  // managementMode: 'appOwnerManaged' | 'committeeManaged'
+  String _managementMode = 'committeeManaged';
+  // Whether App Owner pool can be used when policy triggers
+  bool _usesAppOwnerPoolPolicy = false;
+  // Cost threshold in ILS that triggers comparison or fallback to AppOwner pool
+  final _thresholdController = TextEditingController(text: '500');
+
   @override
   void initState() {
     super.initState();
     _loadBuildingData();
   }
 
-  @override
+@override
   void dispose() {
     _buildingNameController.dispose();
     _addressController.dispose();
@@ -45,6 +54,7 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
     _managerNameController.dispose();
     _managerPhoneController.dispose();
     _managerEmailController.dispose();
+    _thresholdController.dispose();
     super.dispose();
   }
 
@@ -136,6 +146,30 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
       }
 
       _building = loaded.copyWith(name: correctedName, address: correctedAddress);
+
+      // Load maintenance settings document
+      try {
+        final settingsDoc = await FirebaseFirestore.instance
+            .collection('buildings')
+            .doc(buildingId)
+            .collection('settings')
+            .doc('maintenance')
+            .get();
+        if (settingsDoc.exists) {
+          final data = settingsDoc.data() as Map<String, dynamic>;
+          _managementMode = (data['managementMode'] as String?) ?? _managementMode;
+          _usesAppOwnerPoolPolicy = (data['usesAppOwnerPoolPolicy'] as bool?) ?? _usesAppOwnerPoolPolicy;
+          final costPolicy = (data['costPolicy'] as Map<String, dynamic>?) ?? {};
+          final thr = costPolicy['autoCompareThresholdIls'];
+          if (thr is int) {
+            _thresholdController.text = thr.toString();
+          } else if (thr is double) {
+            _thresholdController.text = thr.toInt().toString();
+          }
+        }
+      } catch (e) {
+        debugPrint('⚠️ Failed to load maintenance settings: $e');
+      }
 
       // Populate form controllers
       debugPrint('📝 Settings: Populating form controllers...');
@@ -308,6 +342,13 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
 
                   const SizedBox(height: 32),
 
+                  // Maintenance settings section
+                  _buildSectionHeader('תחזוקה'),
+                  const SizedBox(height: 16),
+                  _buildMaintenanceSettingsCard(),
+
+                  const SizedBox(height: 32),
+
                   // Quick actions section
                   _buildSectionHeader('פעולות מהירות'),
                   const SizedBox(height: 16),
@@ -404,6 +445,81 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
     );
   }
 
+  Widget _buildMaintenanceSettingsCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Management mode
+            Text('מצב ניהול תחזוקה', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('ניהול ע"י ועד הבית'),
+                  selected: _managementMode == 'committeeManaged',
+                  onSelected: (v) {
+                    if (v) setState(() => _managementMode = 'committeeManaged');
+                  },
+                ),
+                ChoiceChip(
+                  label: const Text('ניהול ע"י בעל האפליקציה'),
+                  selected: _managementMode == 'appOwnerManaged',
+                  onSelected: (v) {
+                    if (v) setState(() => _managementMode = 'appOwnerManaged');
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Policy-triggered use of AppOwner pool
+            SwitchListTile(
+              title: const Text('השתמש בבריכת הספקים של בעל האפליקציה בעת הצורך'),
+              subtitle: const Text('בריכה זו תופעל רק כאשר המדיניות מופעלת (לדוגמה, חוסר ספקים מתאימים או עלות גבוהה)'),
+              value: _usesAppOwnerPoolPolicy,
+              onChanged: (v) => setState(() => _usesAppOwnerPoolPolicy = v),
+            ),
+
+            const SizedBox(height: 16),
+            // Threshold input
+            Text('סף השוואת עלויות (₪)', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _thresholdController,
+              keyboardType: TextInputType.number,
+              textDirection: TextDirection.ltr,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.price_change),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                filled: true,
+                fillColor: Colors.grey[50],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openCreateMaintenanceRequest() {
+    if (_currentBuildingId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא נמצא בניין פעיל')),
+      );
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MaintenanceRequestCreatePage(buildingId: _currentBuildingId!),
+      ),
+    );
+  }
+
   Widget _buildQuickActions() {
     return Column(
       children: [
@@ -448,6 +564,21 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
                 () => _showUserPermissions(),
               ),
             ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildActionCard(
+                'בקשת תחזוקה חדשה',
+                Icons.build,
+                Colors.teal,
+                _openCreateMaintenanceRequest,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(child: SizedBox.shrink()),
           ],
         ),
       ],
@@ -574,6 +705,25 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
           .collection('buildings')
           .doc(_currentBuildingId)
           .update(updates);
+
+      // Upsert maintenance settings document
+      final thr = int.tryParse(_thresholdController.text.trim());
+      final maintenanceSettings = {
+        'managementMode': _managementMode,
+        'usesAppOwnerPoolPolicy': _usesAppOwnerPoolPolicy,
+        'costPolicy': {
+          'autoCompareThresholdIls': thr ?? 500,
+          // Optional future fields: minQuotes, weights
+        },
+        'updatedAt': Timestamp.now(),
+      };
+
+      await FirebaseFirestore.instance
+          .collection('buildings')
+          .doc(_currentBuildingId)
+          .collection('settings')
+          .doc('maintenance')
+          .set(maintenanceSettings, SetOptions(merge: true));
 
       // Update local model
       if (_building != null) {

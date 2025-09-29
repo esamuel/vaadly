@@ -1,3 +1,109 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/maintenance/enums.dart';
+import '../models/maintenance/cost_policy.dart';
+import '../models/maintenance/vendor_profile.dart';
+import '../models/maintenance/vendor_pool.dart';
+import '../models/maintenance/maintenance_request.dart';
+
+class MaintenanceService {
+  final FirebaseFirestore _db;
+  final String appOwnerId; // For global pools
+
+  MaintenanceService(this._db, {required this.appOwnerId});
+
+  // Firestore paths (documented for clarity)
+  CollectionReference<Map<String, dynamic>> get _ownerPools => _db
+      .collection('app_owners')
+      .doc(appOwnerId)
+      .collection('vendor_pools');
+
+  CollectionReference<Map<String, dynamic>> get _ownerVendors => _db
+      .collection('app_owners')
+      .doc(appOwnerId)
+      .collection('vendor_profiles');
+
+  CollectionReference<Map<String, dynamic>> _buildingSettings(String buildingId) =>
+      _db.collection('buildings').doc(buildingId).collection('settings');
+
+  CollectionReference<Map<String, dynamic>> _buildingCommitteePools(String buildingId) =>
+      _db.collection('buildings').doc(buildingId).collection('committee_vendor_pools');
+
+  CollectionReference<Map<String, dynamic>> _requests(String buildingId) =>
+      _db.collection('buildings').doc(buildingId).collection('maintenance_requests');
+
+  Future<void> saveOwnerVendor(VendorProfile v) async {
+    await _ownerVendors.doc(v.vendorId).set(v.toJson());
+  }
+
+  Future<void> saveOwnerPool(VendorPool p) async {
+    await _ownerPools.doc(p.poolId).set(p.toJson());
+  }
+
+  Future<VendorProfile?> getVendor(String vendorId) async {
+    final doc = await _ownerVendors.doc(vendorId).get();
+    if (!doc.exists) return null;
+    return VendorProfile.fromJson(doc.data()!);
+  }
+
+  Future<String> createRequest({
+    required String buildingId,
+    String? unitId,
+    required String createdByUserId,
+    required ServiceCategory category,
+    required String description,
+    required ManagementMode managementMode,
+    String? committeePoolId,
+    String? appOwnerPoolId,
+    bool usesAppOwnerPool = false,
+    CostPolicy costPolicy = const CostPolicy(),
+  }) async {
+    final requestRef = _requests(buildingId).doc();
+    final req = MaintenanceRequest(
+      requestId: requestRef.id,
+      buildingId: buildingId,
+      unitId: unitId,
+      createdByUserId: createdByUserId,
+      createdAt: DateTime.now(),
+      category: category,
+      description: description,
+      managementModeSnapshot: managementMode,
+      committeePoolId: committeePoolId,
+      appOwnerPoolId: appOwnerPoolId,
+      usesAppOwnerPool: usesAppOwnerPool,
+      costPolicySnapshot: costPolicy,
+    );
+    await requestRef.set(req.toJson());
+    return requestRef.id;
+  }
+
+  // Simple vendor matching by category and (optional) region
+  Future<List<VendorProfile>> matchVendors({
+    required ServiceCategory category,
+    String? region,
+    bool includeOwnerPool = true,
+    String? buildingId,
+  }) async {
+    final List<VendorProfile> matches = [];
+
+    if (includeOwnerPool) {
+      final snap = await _ownerVendors.get();
+      for (final d in snap.docs) {
+        final v = VendorProfile.fromJson(d.data());
+        final catOk = v.serviceCategories.contains(category);
+        final regionOk = region == null || v.coverageRegions.contains(region);
+        if (catOk && regionOk) matches.add(v);
+      }
+    }
+
+    if (buildingId != null) {
+      // In MVP, assume committee vendors are mirrored under vendor_profiles as well or referenced.
+      // Extension: fetch building-local vendor profiles when present.
+    }
+
+    return matches;
+  }
+}
+
 import '../models/maintenance_request.dart';
 
 class MaintenanceService {
