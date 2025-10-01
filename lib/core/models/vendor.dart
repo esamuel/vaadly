@@ -6,6 +6,7 @@ enum VendorCategory {
   hvac, // מיזוג אוויר
   cleaning, // ניקיון
   gardening, // גינון
+  sanitation, // תברואה
   elevator, // מעליות
   security, // אבטחה
   structural, // מבני
@@ -123,6 +124,8 @@ class Vendor {
         return 'ניקיון';
       case VendorCategory.gardening:
         return 'גינון';
+      case VendorCategory.sanitation:
+        return 'תברואה';
       case VendorCategory.elevator:
         return 'מעליות';
       case VendorCategory.security:

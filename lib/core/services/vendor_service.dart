@@ -304,6 +304,8 @@ class VendorService {
         return 'ניקיון';
       case VendorCategory.gardening:
         return 'גינון';
+      case VendorCategory.sanitation:
+        return 'תברואה';
       case VendorCategory.elevator:
         return 'מעליות';
       case VendorCategory.security:
