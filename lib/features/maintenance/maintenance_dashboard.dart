@@ -348,13 +348,17 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
               ],
             ),
             if (request.assignedVendorName != null) ...[
-              const SizedBox(height: 4),
-              Row(
+              const SizedBox(height: 6),
+              Wrap(
                 children: [
-                  Icon(Icons.business, size: 16, color: Colors.blue[600]),
-                  const SizedBox(width: 4),
-                  Text('ספק: ${request.assignedVendorName}',
-                      style: TextStyle(color: Colors.blue[600], fontWeight: FontWeight.w500)),
+                  Chip(
+                    avatar: const Icon(Icons.business, size: 16, color: Colors.white),
+                    label: Text('ספק: ${request.assignedVendorName}'),
+                    backgroundColor: Colors.blue.shade600,
+                    labelStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
                 ],
               ),
             ],

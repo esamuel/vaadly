@@ -967,6 +967,10 @@ class _FirebaseVendorPageState extends State<FirebaseVendorPage>
     final cityCtrl = TextEditingController(text: vendor.city);
     final rateCtrl = TextEditingController(text: vendor.hourlyRate?.toStringAsFixed(0) ?? '');
     VendorStatus status = vendor.status;
+    // Multi-select categories
+    final Set<VendorCategory> categories = vendor.categories.toSet();
+    // Simple attachments (URLs)
+    final docsCtrl = TextEditingController(text: vendor.documentUrls.join(', '));
 
     showDialog(
       context: context,
@@ -1010,6 +1014,7 @@ class _FirebaseVendorPageState extends State<FirebaseVendorPage>
                     decoration: const InputDecoration(labelText: 'תעריף לשעה (₪)'),
                   ),
                   const SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Wrap(
@@ -1020,6 +1025,46 @@ class _FirebaseVendorPageState extends State<FirebaseVendorPage>
                         onSelected: (_) => setState(() => status = s),
                       )).toList(),
                     ),
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('קטגוריות:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: VendorCategory.values.map((c) {
+                            final selected = categories.contains(c);
+                            return FilterChip(
+                              label: Text(_getCategoryDisplay(c)),
+                              selected: selected,
+                              onSelected: (v) {
+                                setState(() {
+                                  if (v) {
+                                    categories.add(c);
+                                  } else {
+                                    categories.remove(c);
+                                  }
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: docsCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'מסמכים (קישורים, מופרדים בפסיקים)',
+                    ),
+                    minLines: 1,
+                    maxLines: 2,
                   ),
                 ],
               ),
@@ -1044,7 +1089,7 @@ class _FirebaseVendorPageState extends State<FirebaseVendorPage>
                   city: cityCtrl.text.trim().isEmpty ? vendor.city : cityCtrl.text.trim(),
                   postalCode: vendor.postalCode,
                   country: vendor.country,
-                  categories: vendor.categories,
+                  categories: categories.toList(),
                   status: status,
                   licenseNumber: vendor.licenseNumber,
                   insuranceInfo: vendor.insuranceInfo,
@@ -1054,7 +1099,11 @@ class _FirebaseVendorPageState extends State<FirebaseVendorPage>
                   totalJobs: vendor.totalJobs,
                   notes: vendor.notes,
                   photoUrls: vendor.photoUrls,
-                  documentUrls: vendor.documentUrls,
+                  documentUrls: docsCtrl.text
+                      .split(',')
+                      .map((s) => s.trim())
+                      .where((s) => s.isNotEmpty)
+                      .toList(),
                   createdAt: vendor.createdAt,
                   updatedAt: DateTime.now(),
                   isActive: vendor.isActive,

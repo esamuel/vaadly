@@ -106,4 +106,18 @@ class FirebaseActivityService {
       return 0;
     }
   }
+
+  static Future<int> migrateActivityUserNamesAllBuildings() async {
+    try {
+      final buildings = await _firestore.collection('buildings').get();
+      int total = 0;
+      for (final b in buildings.docs) {
+        total += await migrateActivityUserNames(b.id);
+      }
+      return total;
+    } catch (e) {
+      print('❌ migrateActivityUserNamesAllBuildings error: $e');
+      return 0;
+    }
+  }
 }

@@ -58,6 +58,29 @@ class _MaintenanceRequestCreatePageState extends State<MaintenanceRequestCreateP
           return data;
         }).toList();
       }
+
+      // Fallback/merge: also include vendors from the flat vendors collection for this building
+      final vendorsFlat = await db
+          .collection('vendors')
+          .where('buildingId', isEqualTo: widget.buildingId)
+          .get();
+      final flatList = vendorsFlat.docs.map((d) {
+        final data = d.data();
+        return {
+          'vendorId': d.id,
+          'name': data['name'] ?? 'ללא שם',
+          'status': data['status'] ?? 'active',
+        };
+      }).toList();
+
+      // Merge, avoid duplicates by vendorId
+      final byId = {for (final v in _committeeVendors) v['vendorId'] as String: v};
+      for (final v in flatList) {
+        byId.putIfAbsent(v['vendorId'] as String, () => v);
+      }
+      _committeeVendors = byId.values.toList();
+      // Sort by name for usability
+      _committeeVendors.sort((a, b) => (a['name'] ?? '').toString().compareTo((b['name'] ?? '').toString()));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

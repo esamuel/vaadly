@@ -255,6 +255,11 @@ class _AppOwnerDashboardState extends State<AppOwnerDashboard> {
                             icon: const Icon(Icons.history_toggle_off),
                             label: const Text('Migrate Activity Names'),
                           ),
+                          OutlinedButton.icon(
+                            onPressed: _isProcessing ? null : _migrateAllActivityNames,
+                            icon: const Icon(Icons.all_inclusive),
+                            label: const Text('Migrate All Buildings'),
+                          ),
                         ],
                       ),
                     ],
@@ -368,6 +373,26 @@ class _AppOwnerDashboardState extends State<AppOwnerDashboard> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Updated $updated activity records')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Migration failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _migrateAllActivityNames() async {
+    setState(() => _isProcessing = true);
+    try {
+      final updated = await FirebaseActivityService.migrateActivityUserNamesAllBuildings();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Updated $updated activity records across all buildings')),
         );
       }
     } catch (e) {
