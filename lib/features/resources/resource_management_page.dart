@@ -140,6 +140,13 @@ class _AssetsList extends StatelessWidget {
         }
 
         final docs = snapshot.data?.docs ?? [];
+        // Ensure deterministic numeric order (1,2,3,...) even if stored as strings
+        final sortedDocs = List.of(docs)
+          ..sort((a, b) {
+            int an = int.tryParse(a.data()['number']?.toString() ?? '') ?? 0;
+            int bn = int.tryParse(b.data()['number']?.toString() ?? '') ?? 0;
+            return an.compareTo(bn);
+          });
         if (docs.isEmpty) {
           // Auto-seed a small inventory if none exists yet (best-effort)
           Future.microtask(() async {
@@ -204,10 +211,10 @@ class _AssetsList extends StatelessWidget {
 
             return ListView.separated(
               padding: const EdgeInsets.all(16),
-              itemCount: docs.length,
+              itemCount: sortedDocs.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
               itemBuilder: (context, index) {
-                final data = docs[index].data();
+                final data = sortedDocs[index].data();
                 final number = data['number']?.toString() ?? '?';
                 final label = data['label']?.toString() ?? '';
                 final status = data['status']?.toString() ?? 'available';

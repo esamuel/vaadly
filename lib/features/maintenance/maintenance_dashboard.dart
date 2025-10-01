@@ -477,6 +477,17 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
               const SizedBox(height: 8),
               Text('סטטוס: ${request.statusDisplay}'),
               const SizedBox(height: 8),
+              if (request.assignedVendorName != null) ...[
+                Row(
+                  children: [
+                    Icon(Icons.business, size: 16, color: Colors.blue[700]),
+                    const SizedBox(width: 6),
+                    Text('ספק: ${request.assignedVendorName}',
+                        style: TextStyle(color: Colors.blue[700], fontWeight: FontWeight.w500)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+              ],
               Text('🔍 Debug Status: ${request.status.toString()}'),
               if (request.completedAt != null) ...[
                 const SizedBox(height: 8),
