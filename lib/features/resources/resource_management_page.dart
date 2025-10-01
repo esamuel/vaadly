@@ -684,6 +684,8 @@ class _VendorsListState extends State<_VendorsList> {
         return Icons.cleaning_services;
       case VendorCategory.gardening:
         return Icons.grass;
+      case VendorCategory.sanitation:
+        return Icons.delete_outline;
       case VendorCategory.elevator:
         return Icons.elevator;
       case VendorCategory.security:
@@ -699,6 +701,50 @@ class _VendorsListState extends State<_VendorsList> {
       case VendorCategory.general:
       default:
         return Icons.build;
+    }
+  }
+
+  String _getStatusDisplay(VendorStatus status) {
+    switch (status) {
+      case VendorStatus.active:
+        return 'פעיל';
+      case VendorStatus.inactive:
+        return 'לא פעיל';
+      case VendorStatus.suspended:
+        return 'מושהה';
+      case VendorStatus.blacklisted:
+        return 'ברשימה שחורה';
+    }
+  }
+
+  String _getCategoryDisplay(VendorCategory category) {
+    switch (category) {
+      case VendorCategory.plumbing:
+        return 'אינסטלציה';
+      case VendorCategory.electrical:
+        return 'חשמל';
+      case VendorCategory.hvac:
+        return 'מיזוג אוויר';
+      case VendorCategory.cleaning:
+        return 'ניקיון';
+      case VendorCategory.gardening:
+        return 'גינון';
+      case VendorCategory.sanitation:
+        return 'תברואה';
+      case VendorCategory.elevator:
+        return 'מעליות';
+      case VendorCategory.security:
+        return 'אבטחה';
+      case VendorCategory.structural:
+        return 'מבני';
+      case VendorCategory.painting:
+        return 'צביעה';
+      case VendorCategory.carpentry:
+        return 'נגרות';
+      case VendorCategory.roofing:
+        return 'גגות';
+      case VendorCategory.general:
+        return 'כללי';
     }
   }
 
@@ -750,11 +796,161 @@ class _VendorsListState extends State<_VendorsList> {
   }
 
   void _editVendor(BuildContext context, Vendor vendor) {
-    // TODO: Implement edit vendor functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('עריכת ספק - בקרוב...'),
-        backgroundColor: Colors.orange,
+    final nameCtrl = TextEditingController(text: vendor.name);
+    final contactCtrl = TextEditingController(text: vendor.contactPerson);
+    final phoneCtrl = TextEditingController(text: vendor.phone);
+    final emailCtrl = TextEditingController(text: vendor.email ?? '');
+    final cityCtrl = TextEditingController(text: vendor.city);
+    final rateCtrl = TextEditingController(text: vendor.hourlyRate?.toStringAsFixed(0) ?? '');
+    final docsCtrl = TextEditingController(text: vendor.documentUrls.join(', '));
+    VendorStatus status = vendor.status;
+    double rating = vendor.rating ?? 0;
+    final Set<VendorCategory> categories = vendor.categories.toSet();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('ערוך ספק: ${vendor.name}'),
+          content: SizedBox(
+            width: 520,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'שם ספק')),
+                  const SizedBox(height: 8),
+                  TextField(controller: contactCtrl, decoration: const InputDecoration(labelText: 'איש קשר')),
+                  const SizedBox(height: 8),
+                  TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: 'טלפון')),
+                  const SizedBox(height: 8),
+                  TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'אימייל')),
+                  const SizedBox(height: 8),
+                  TextField(controller: cityCtrl, decoration: const InputDecoration(labelText: 'עיר')),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: rateCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'תעריף לשעה (₪)'),
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: 8,
+                      children: VendorStatus.values.map((s) => ChoiceChip(
+                        label: Text(_getStatusDisplay(s)),
+                        selected: status == s,
+                        onSelected: (_) => setState(() => status = s),
+                      )).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('קטגוריות:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: VendorCategory.values.map((c) {
+                            final selected = categories.contains(c);
+                            return FilterChip(
+                              label: Text(_getCategoryDisplay(c)),
+                              selected: selected,
+                              onSelected: (v) {
+                                setState(() {
+                                  if (v) {
+                                    categories.add(c);
+                                  } else {
+                                    categories.remove(c);
+                                  }
+                                });
+                              },
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Text('דירוג:'),
+                      Expanded(
+                        child: Slider(
+                          value: rating,
+                          min: 0,
+                          max: 5,
+                          divisions: 10,
+                          label: rating.toStringAsFixed(1),
+                          onChanged: (v) => setState(() => rating = v),
+                        ),
+                      ),
+                      Text(rating.toStringAsFixed(1)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: docsCtrl,
+                    decoration: const InputDecoration(labelText: 'מסמכים (קישורים, מופרדים בפסיקים)'),
+                    minLines: 1,
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('בטל')),
+            ElevatedButton(
+              onPressed: () async {
+                final updated = Vendor(
+                  id: vendor.id,
+                  buildingId: vendor.buildingId,
+                  name: nameCtrl.text.trim().isEmpty ? vendor.name : nameCtrl.text.trim(),
+                  contactPerson: contactCtrl.text.trim().isEmpty ? vendor.contactPerson : contactCtrl.text.trim(),
+                  phone: phoneCtrl.text.trim().isEmpty ? vendor.phone : phoneCtrl.text.trim(),
+                  email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
+                  website: vendor.website,
+                  address: vendor.address,
+                  city: cityCtrl.text.trim().isEmpty ? vendor.city : cityCtrl.text.trim(),
+                  postalCode: vendor.postalCode,
+                  country: vendor.country,
+                  categories: categories.toList(),
+                  status: status,
+                  licenseNumber: vendor.licenseNumber,
+                  insuranceInfo: vendor.insuranceInfo,
+                  hourlyRate: rateCtrl.text.trim().isEmpty ? vendor.hourlyRate : double.tryParse(rateCtrl.text.trim()),
+                  rating: rating,
+                  completedJobs: vendor.completedJobs,
+                  totalJobs: vendor.totalJobs,
+                  notes: vendor.notes,
+                  photoUrls: vendor.photoUrls,
+                  documentUrls: docsCtrl.text.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList(),
+                  createdAt: vendor.createdAt,
+                  updatedAt: DateTime.now(),
+                  isActive: vendor.isActive,
+                );
+                final ok = await FirebaseVendorService.updateVendor(vendor.id, updated);
+                if (ok && mounted) {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('הספק עודכן בהצלחה'), backgroundColor: Colors.green),
+                  );
+                } else if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('עדכון נכשל'), backgroundColor: Colors.red),
+                  );
+                }
+              },
+              child: const Text('שמור'),
+            ),
+          ],
+        ),
       ),
     );
   }
