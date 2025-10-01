@@ -182,7 +182,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: DropdownButtonFormField<Building>(
-                            initialValue: _selectedBuilding,
+                            value: _selectedBuilding,
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(

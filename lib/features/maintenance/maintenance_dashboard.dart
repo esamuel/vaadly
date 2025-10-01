@@ -15,7 +15,7 @@ class MaintenanceDashboard extends StatefulWidget {
 
 class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
   int _selectedFilterIndex = 0;
-  List<MaintenanceRequest> _requests = [];
+  final List<MaintenanceRequest> _requests = [];
   bool _loading = false;
   Stream<List<MaintenanceRequest>>? _requestStream;
 
@@ -34,11 +34,6 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
   }
 
   Future<void> _loadMaintenanceData() async {
-    setState(() => _loading = true);
-
-    // Simulate loading maintenance requests
-    await Future.delayed(const Duration(milliseconds: 500));
-
     // Ensure building context is set to demo building
     try {
       if (!BuildingContextService.hasBuilding) {
@@ -49,9 +44,17 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
     }
 
     // If building context exists, prefer Firestore stream
-    final buildingId = BuildingContextService.buildingId ?? 'demo_building_1';
-    _requestStream = _firestoreStream(buildingId);
-    setState(() => _loading = false);
+    final buildingId = BuildingContextService.buildingId ??
+                       BuildingContextService.currentBuilding?.buildingId ??
+                       'demo_building_1';
+
+    print('🔍 MaintenanceDashboard: Loading requests for building ID: $buildingId');
+    print('🔍 MaintenanceDashboard: BuildingContext.buildingId = ${BuildingContextService.buildingId}');
+    print('🔍 MaintenanceDashboard: BuildingContext.currentBuilding?.buildingId = ${BuildingContextService.currentBuilding?.buildingId}');
+
+    setState(() {
+      _requestStream = _firestoreStream(buildingId);
+    });
   }
 
   Stream<List<MaintenanceRequest>> _firestoreStream(String buildingId) {
@@ -59,16 +62,25 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
   }
 
   List<MaintenanceRequest> _applyFilterTo(List<MaintenanceRequest> src) {
-    if (_selectedFilterIndex == 0) return src;
+    if (_selectedFilterIndex == 0) return src; // All
 
     if (_selectedFilterIndex == 4) {
+      // Urgent
       return src
           .where((req) => req.priority == MaintenancePriority.urgent)
           .toList();
     }
 
+    if (_selectedFilterIndex == 1) {
+      // Open - includes pending and assigned
+      return src
+          .where((req) =>
+              req.status == MaintenanceStatus.pending ||
+              req.status == MaintenanceStatus.assigned)
+          .toList();
+    }
+
     final statusMap = {
-      1: MaintenanceStatus.pending,
       2: MaintenanceStatus.inProgress,
       3: MaintenanceStatus.completed,
     };
@@ -78,20 +90,28 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
   }
 
   List<MaintenanceRequest> get _filteredRequests {
-    if (_selectedFilterIndex == 0) return _requests;
-
-    final statusMap = {
-      1: MaintenanceStatus.pending,
-      2: MaintenanceStatus.inProgress,
-      3: MaintenanceStatus.completed,
-      4: MaintenancePriority.urgent,
-    };
+    if (_selectedFilterIndex == 0) return _requests; // All
 
     if (_selectedFilterIndex == 4) {
+      // Urgent
       return _requests
           .where((req) => req.priority == MaintenancePriority.urgent)
           .toList();
     }
+
+    if (_selectedFilterIndex == 1) {
+      // Open - includes pending and assigned
+      return _requests
+          .where((req) =>
+              req.status == MaintenanceStatus.pending ||
+              req.status == MaintenanceStatus.assigned)
+          .toList();
+    }
+
+    final statusMap = {
+      2: MaintenanceStatus.inProgress,
+      3: MaintenanceStatus.completed,
+    };
 
     return _requests
         .where((req) => req.status == statusMap[_selectedFilterIndex])
@@ -125,128 +145,23 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Statistics cards
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                    child: _buildStatCard('סה"כ בקשות',
-                        _requests.length.toString(), Icons.list, Colors.blue)),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: _buildStatCard(
-                        'פתוחות',
-                        _requests
-                            .where((r) => r.status == MaintenanceStatus.pending)
-                            .length
-                            .toString(),
-                        Icons.pending,
-                        Colors.orange)),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: _buildStatCard(
-                        'דחופות',
-                        _requests
-                            .where(
-                                (r) => r.priority == MaintenancePriority.urgent)
-                            .length
-                            .toString(),
-                        Icons.priority_high,
-                        Colors.red)),
-              ],
-            ),
-          ),
+      body: _requestStream == null
+          ? const Center(child: CircularProgressIndicator())
+          : StreamBuilder<List<MaintenanceRequest>>(
+              stream: _requestStream,
+              builder: (context, snapshot) {
+                // Show loading while waiting for first data
+                if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          // Filter tabs
-          Container(
-            height: 50,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _filterOptions.length,
-              itemBuilder: (context, index) {
-                final isSelected = index == _selectedFilterIndex;
-                return Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(_filterOptions[index]),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      setState(() => _selectedFilterIndex = index);
-                    },
-                    backgroundColor: Colors.grey[200],
-                    selectedColor: Colors.indigo[100],
-                    checkmarkColor: Colors.indigo,
-                  ),
-                );
+                // Use snapshot data if available, otherwise empty list
+                final allRequests = snapshot.data ?? [];
+
+                print('🔍 MaintenanceDashboard UI: Rendering with ${allRequests.length} requests');
+                return _buildMainContent(allRequests);
               },
             ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Requests list
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _requestStream != null
-                    ? StreamBuilder<List<MaintenanceRequest>>(
-                        stream: _requestStream,
-                        builder: (context, snapshot) {
-                          final data = snapshot.data ?? _requests;
-                          final shown = _applyFilterTo(data);
-                          if (shown.isEmpty) {
-                            return const Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.build,
-                                      size: 64, color: Colors.grey),
-                                  SizedBox(height: 16),
-                                  Text('אין בקשות תחזוקה',
-                                      style: TextStyle(
-                                          fontSize: 18, color: Colors.grey)),
-                                ],
-                              ),
-                            );
-                          }
-                          return ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: shown.length,
-                            itemBuilder: (context, index) {
-                              final request = shown[index];
-                              return _buildRequestCard(request);
-                            },
-                          );
-                        },
-                      )
-                    : _filteredRequests.isEmpty
-                        ? const Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.build, size: 64, color: Colors.grey),
-                                SizedBox(height: 16),
-                                Text('אין בקשות תחזוקה',
-                                    style: TextStyle(
-                                        fontSize: 18, color: Colors.grey)),
-                              ],
-                            ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: _filteredRequests.length,
-                            itemBuilder: (context, index) {
-                              final request = _filteredRequests[index];
-                              return _buildRequestCard(request);
-                            },
-                          ),
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: "maintenance_fab",
         onPressed: () => _showAddRequestDialog(),
@@ -255,6 +170,108 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
       ),
+    );
+  }
+
+  Widget _buildMainContent(List<MaintenanceRequest> allRequests) {
+    final totalCount = allRequests.length;
+    final openCount = allRequests
+        .where((r) =>
+            r.status == MaintenanceStatus.pending ||
+            r.status == MaintenanceStatus.assigned)
+        .length;
+    final urgentCount = allRequests
+        .where((r) => r.priority == MaintenancePriority.urgent)
+        .length;
+
+    print('🔍 MaintenanceDashboard _buildMainContent: Total=$totalCount, Open=$openCount, Urgent=$urgentCount');
+
+    return Column(
+      children: [
+        // Statistics cards
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                  child: _buildStatCard('סה"כ בקשות',
+                      totalCount.toString(), Icons.list, Colors.blue)),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: _buildStatCard(
+                      'פתוחות',
+                      openCount.toString(),
+                      Icons.pending,
+                      Colors.orange)),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: _buildStatCard(
+                      'דחופות',
+                      urgentCount.toString(),
+                      Icons.priority_high,
+                      Colors.red)),
+            ],
+          ),
+        ),
+
+        // Filter tabs
+        Container(
+          height: 50,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _filterOptions.length,
+            itemBuilder: (context, index) {
+              final isSelected = index == _selectedFilterIndex;
+              return Container(
+                margin: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  label: Text(_filterOptions[index]),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() => _selectedFilterIndex = index);
+                  },
+                  backgroundColor: Colors.grey[200],
+                  selectedColor: Colors.indigo[100],
+                  checkmarkColor: Colors.indigo,
+                ),
+              );
+            },
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Requests list
+        Expanded(
+          child: Builder(
+            builder: (context) {
+              final shown = _applyFilterTo(allRequests);
+              if (shown.isEmpty) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.build, size: 64, color: Colors.grey),
+                      SizedBox(height: 16),
+                      Text('אין בקשות תחזוקה',
+                          style: TextStyle(fontSize: 18, color: Colors.grey)),
+                    ],
+                  ),
+                );
+              }
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: shown.length,
+                itemBuilder: (context, index) {
+                  final request = shown[index];
+                  return _buildRequestCard(request);
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -330,6 +347,17 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
                     style: TextStyle(color: Colors.grey[600])),
               ],
             ),
+            if (request.assignedVendorName != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(Icons.business, size: 16, color: Colors.blue[600]),
+                  const SizedBox(width: 4),
+                  Text('ספק: ${request.assignedVendorName}',
+                      style: TextStyle(color: Colors.blue[600], fontWeight: FontWeight.w500)),
+                ],
+              ),
+            ],
           ],
         ),
         trailing: Column(
@@ -351,12 +379,15 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
   Widget _buildStatusChip(MaintenanceStatus status) {
     final statusData = {
       MaintenanceStatus.pending: {'label': 'ממתין', 'color': Colors.orange},
+      MaintenanceStatus.assigned: {'label': 'מוקצה', 'color': Colors.cyan},
       MaintenanceStatus.inProgress: {'label': 'בטיפול', 'color': Colors.blue},
+      MaintenanceStatus.onHold: {'label': 'מושהה', 'color': Colors.amber},
       MaintenanceStatus.completed: {'label': 'הושלם', 'color': Colors.green},
       MaintenanceStatus.cancelled: {'label': 'בוטל', 'color': Colors.grey},
+      MaintenanceStatus.rejected: {'label': 'נדחה', 'color': Colors.red},
     };
 
-    final data = statusData[status]!;
+    final data = statusData[status] ?? {'label': 'לא ידוע', 'color': Colors.grey};
     final color = data['color'] as Color;
     final label = data['label'] as String;
 
@@ -579,6 +610,64 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
                     },
                     child: const Text('בטל', style: TextStyle(color: Colors.white)),
                   ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red[900]),
+                  onPressed: () async {
+                    // Show confirmation dialog
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('אישור מחיקה'),
+                        content: const Text('האם אתה בטוח שברצונך למחוק את הבקשה לצמיתות?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('ביטול'),
+                          ),
+                          TextButton(
+                            style: TextButton.styleFrom(foregroundColor: Colors.red),
+                            onPressed: () => Navigator.of(context).pop(true),
+                            child: const Text('מחק'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirmed == true) {
+                      Navigator.of(context).pop();
+                      print('🗑️ Deleting maintenance request: ${request.id}');
+                      final success = await FirebaseMaintenanceService.deleteMaintenanceRequest(
+                          request.buildingId, request.id);
+                      if (success) {
+                        await FirebaseActivityService.logActivity(
+                          buildingId: request.buildingId,
+                          type: 'maintenance_deleted',
+                          title: 'בקשה נמחקה',
+                          subtitle: request.title,
+                        );
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('הבקשה נמחקה בהצלחה'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                          setState(() {});
+                        }
+                      } else {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('שגיאה במחיקת הבקשה'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    }
+                  },
+                  child: const Text('מחק', style: TextStyle(color: Colors.white)),
+                ),
               ],
             ),
           ),
@@ -592,34 +681,92 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
       context: context,
       builder: (context) => _AddMaintenanceRequestDialog(
         onSubmit: (request) async {
-          print('🔍 Debug: Submitting new request: ${request.title}');
-          
-          // Persist to Firestore if possible
+          print('🔍 Dialog onSubmit: Request title = ${request.title}');
+          print('🔍 Dialog onSubmit: Request buildingId = ${request.buildingId}');
+
+          // Persist to Firestore
           final buildingId = request.buildingId;
-          String? savedId;
-          if (buildingId.isNotEmpty) {
-            print('🔍 Debug: Saving to Firestore for building: $buildingId');
-            savedId = await FirebaseMaintenanceService.addMaintenanceRequest(
-                buildingId, request);
-            print('🔍 Debug: Firestore save result: $savedId');
+          if (buildingId.isEmpty) {
+            print('❌ Error: Building ID is empty, cannot save request');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('שגיאה: לא ניתן לשמור בקשה ללא זיהוי בניין'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+            return;
           }
-          
-          // Always update local state for immediate feedback
-          if (mounted) {
-            setState(() {
-              final reqWithId = savedId != null
-                  ? request.copyWith(id: savedId)
-                  : request;
-              _requests.insert(0, reqWithId);
-            });
-            
+
+          print('🔍 Dialog onSubmit: Saving to Firestore for building: $buildingId');
+          final savedId = await FirebaseMaintenanceService.addMaintenanceRequest(
+              buildingId, request);
+          print('🔍 Dialog onSubmit: Firestore save result: $savedId');
+
+          if (!mounted) return;
+
+          if (savedId != null) {
             // Show success message
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text(savedId != null 
-                    ? 'בקשת תחזוקה נשמרה בהצלחה' 
-                    : 'בקשת תחזוקה נוספה מקומית'),
-                backgroundColor: savedId != null ? Colors.green : Colors.orange,
+                content: Text('בקשת תחזוקה נשמרה בהצלחה (ID: $savedId)'),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 2),
+              ),
+            );
+
+            // Ask if user wants to assign a vendor immediately
+            final shouldAssign = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('הקצאת ספק'),
+                content: const Text('האם ברצונך להקצות ספק לבקשה זו עכשיו?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('לא כרגע'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('כן, הקצה ספק'),
+                  ),
+                ],
+              ),
+            );
+
+            if (shouldAssign == true && mounted) {
+              // Show vendor selection
+              final vendor = await _pickVendor(buildingId);
+              if (vendor != null && mounted) {
+                await FirebaseMaintenanceService.assignToVendor(
+                  buildingId,
+                  savedId,
+                  vendor['id']!,
+                  vendor['name']!,
+                );
+                await FirebaseActivityService.logActivity(
+                  buildingId: buildingId,
+                  type: 'maintenance_assigned',
+                  title: 'הוקצה לספק',
+                  subtitle: vendor['name']!,
+                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('הבקשה הוקצתה לספק: ${vendor['name']}'),
+                      backgroundColor: Colors.blue,
+                    ),
+                  );
+                }
+              }
+            }
+          } else {
+            // Show error message
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('שגיאה בשמירת בקשת תחזוקה'),
+                backgroundColor: Colors.red,
               ),
             );
           }
@@ -629,35 +776,96 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
   }
 
   Future<Map<String, String>?> _pickVendor(String buildingId) async {
-    // Load vendors from building committee vendor profiles
-    final buildingRef = FirebaseFirestore.instance.collection('buildings').doc(buildingId);
-    final profilesSnap = await buildingRef.collection('committee_vendor_profiles').get();
-    final vendors = profilesSnap.docs
-        .map((d) => {
-              'id': d.id,
-              'name': (d.data()['name'] ?? 'ספק') as String,
-              'categories': ((d.data()['serviceCategories'] as List?)?.cast<String>() ?? const []).join(', '),
-            })
-        .toList();
-    return await showDialog<Map<String, String>>(
-      context: context,
-      builder: (context) => AlertDialog(
+    try {
+      print('🔍 Loading vendors for building: $buildingId');
+      // Load vendors from flat vendors collection (filtered by buildingId)
+      final vendorsQuery = await FirebaseFirestore.instance
+          .collection('vendors')
+          .where('buildingId', isEqualTo: buildingId)
+          .get();
+
+      print('🔍 Total vendors found: ${vendorsQuery.docs.length}');
+
+      // Filter for active vendors, or include all if no status field
+      final vendorsSnap = vendorsQuery.docs.where((doc) {
+        final data = doc.data();
+        final status = data['status'] as String?;
+        // Include if status is 'active' or if status field doesn't exist
+        return status == null || status == 'active';
+      }).toList();
+
+      print('🔍 Available vendors after filtering: ${vendorsSnap.length}');
+
+      final vendors = vendorsSnap
+          .map((d) => {
+                'id': d.id,
+                'name': (d.data()['name'] ?? 'ספק') as String,
+                'category': (d.data()['category'] ?? '') as String,
+                'services': ((d.data()['services'] as List?)?.cast<String>() ?? const []).join(', '),
+              })
+          .toList();
+
+      // Sort in memory instead of in query to avoid index requirement
+      vendors.sort((a, b) {
+        // Sort by name for now
+        return (a['name'] ?? '').compareTo(b['name'] ?? '');
+      });
+
+      return await showDialog<Map<String, String>>(
+        context: context,
+        builder: (context) => AlertDialog(
         title: const Text('בחר ספק'),
         content: SizedBox(
           width: 420,
-          height: 360,
-          child: ListView.builder(
-            itemCount: vendors.length,
-            itemBuilder: (context, index) {
-              final v = vendors[index];
-              return ListTile(
-                leading: const Icon(Icons.business),
-                title: Text(v['name'] ?? 'ספק'),
-                subtitle: Text(v['categories'] ?? ''),
-                onTap: () => Navigator.of(context).pop({'id': v['id']!, 'name': v['name']!}),
-              );
-            },
-          ),
+          height: vendors.isEmpty ? 200 : 360,
+          child: vendors.isEmpty
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.business_center, size: 64, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'אין ספקים זמינים',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'נא להוסיף ספקים דרך ניהול הספקים',
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => ResourceManagementPage(buildingId: buildingId),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('נהל ספקים'),
+                    ),
+                  ],
+                )
+              : ListView.builder(
+                  itemCount: vendors.length,
+                  itemBuilder: (context, index) {
+                    final v = vendors[index];
+                    final category = v['category'] ?? '';
+                    final services = v['services'] ?? '';
+                    final subtitle = category.isNotEmpty
+                        ? (services.isNotEmpty ? '$category • $services' : category)
+                        : services;
+                    return ListTile(
+                      leading: const Icon(Icons.business),
+                      title: Text(v['name'] ?? 'ספק'),
+                      subtitle: subtitle.isNotEmpty ? Text(subtitle) : null,
+                      onTap: () => Navigator.of(context).pop({'id': v['id']!, 'name': v['name']!}),
+                    );
+                  },
+                ),
         ),
         actions: [
           TextButton(
@@ -667,6 +875,10 @@ class _MaintenanceDashboardState extends State<MaintenanceDashboard> {
         ],
       ),
     );
+    } catch (e) {
+      print('❌ Error loading vendors: $e');
+      return null;
+    }
   }
 
   void _updateRequestStatus(
@@ -759,7 +971,7 @@ class _AddMaintenanceRequestDialogState
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<MaintenanceCategory>(
-                        initialValue: _category,
+                        value: _category,
                         items: MaintenanceCategory.values
                             .map((c) => DropdownMenuItem(
                                   value: c,
@@ -777,7 +989,7 @@ class _AddMaintenanceRequestDialogState
                     const SizedBox(width: 12),
                     Expanded(
                       child: DropdownButtonFormField<MaintenancePriority>(
-                        initialValue: _priority,
+                        value: _priority,
                         items: MaintenancePriority.values
                             .map((p) => DropdownMenuItem(
                                   value: p,
@@ -853,14 +1065,16 @@ class _AddMaintenanceRequestDialogState
   void _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final now = DateTime.now();
-    
-    // Ensure building ID is set
+
+    // Ensure building ID is set - use same logic as loading
     final buildingId = BuildingContextService.buildingId ??
-        BuildingContextService.currentBuilding?.buildingId ?? 
+        BuildingContextService.currentBuilding?.buildingId ??
         'demo_building_1';
-    
-    print('🔍 Debug: Creating request for building: $buildingId');
-    
+
+    print('🔍 Dialog: Creating request for building: $buildingId');
+    print('🔍 Dialog: BuildingContext.buildingId = ${BuildingContextService.buildingId}');
+    print('🔍 Dialog: BuildingContext.currentBuilding?.buildingId = ${BuildingContextService.currentBuilding?.buildingId}');
+
     final request = MaintenanceRequest(
       id: now.millisecondsSinceEpoch.toString(),
       buildingId: buildingId,

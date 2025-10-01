@@ -9,6 +9,8 @@ import '../../features/onboarding/committee_invitation_screen.dart';
 import '../../features/dashboards/app_owner_dashboard_simple.dart';
 import '../../features/dashboards/committee_dashboard.dart';
 import '../../features/dashboards/resident_dashboard.dart';
+import '../config/runtime_flags.dart';
+import '../../features/buildings/building_selector_page.dart';
 
 class AuthWrapper extends StatefulWidget {
   final String? buildingCode;
@@ -43,9 +45,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Future<void> _initialize() async {
     try {
       await AuthService.initialize();
-      // Ensure a demo building exists before creating demo users
-      await BuildingContextService.initializeDemoBuildingContext();
-      await AuthService.initializeDemoUsers();
+      // Seed demo data only when explicitly enabled
+      if (kEnableDemoSeeding) {
+        await BuildingContextService.initializeDemoBuildingContext();
+        await AuthService.initializeDemoUsers();
+      }
       
       // If building code is provided, set building context
       if (widget.buildingCode != null) {
@@ -143,11 +147,17 @@ class _AuthWrapperState extends State<AuthWrapper> {
       }
     }
 
-    // If we have a building context, ensure user has access
+    // If we have a building context, ensure user has access (by id or code)
     if (BuildingContextService.hasBuilding) {
       final buildingId = BuildingContextService.buildingId!;
-      if (!user.canAccessBuilding(buildingId) && !user.isAppOwner) {
-        // User doesn't have access to this building, sign them out
+      final buildingCode = BuildingContextService.currentBuilding?.buildingCode;
+      final access = user.buildingAccess;
+      final hasAccess = user.isAppOwner ||
+          access.containsKey('all') ||
+          access.containsKey(buildingId) ||
+          (buildingCode != null && access.containsKey(buildingCode));
+
+      if (!hasAccess) {
         AuthService.signOut();
         return widget.buildingCode != null
             ? BuildingAuthScreen(buildingCode: widget.buildingCode!)
@@ -155,6 +165,37 @@ class _AuthWrapperState extends State<AuthWrapper> {
       }
     }
     
+    // If no building context yet and user has multiple options, let them choose
+    final accessKeys = user.accessibleBuildings;
+    final hasAll = user.buildingAccess.containsKey('all') || user.isAppOwner;
+    if (!BuildingContextService.hasBuilding && (hasAll || accessKeys.length > 1)) {
+      return const BuildingSelectorPage();
+    }
+
+    // Prefer context-aware routing: decide by access in current building
+    if (BuildingContextService.hasBuilding) {
+      final buildingId = BuildingContextService.buildingId!;
+      final code = BuildingContextService.currentBuilding?.buildingCode;
+      String? level;
+      if (user.isAppOwner) {
+        level = 'admin';
+      } else {
+        level = user.buildingAccess[buildingId] ?? (code != null ? user.buildingAccess[code] : null) ?? user.buildingAccess['all'];
+      }
+      if (level == 'admin') {
+        return const CommitteeDashboard();
+      }
+      if (level != null) {
+        return const ResidentDashboard();
+      }
+    }
+
+    // If no building context, owners go to owner dashboard
+    if (user.isAppOwner) {
+      return const AppOwnerDashboard();
+    }
+
+    // Fallback to role-based when no building context or no specific access
     switch (user.role) {
       case UserRole.appOwner:
         return const AppOwnerDashboard();

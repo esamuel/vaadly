@@ -456,7 +456,7 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: DropdownButtonFormField<Building>(
-                    initialValue: _selectedBuilding,
+                    value: _selectedBuilding,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       contentPadding:
@@ -570,7 +570,7 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
                     // Unit type filter
                     Expanded(
                       child: DropdownButtonFormField<UnitType?>(
-                        initialValue: _selectedUnitTypeFilter,
+                        value: _selectedUnitTypeFilter,
                         decoration: const InputDecoration(
                           labelText: 'סוג יחידה',
                           border: OutlineInputBorder(),
@@ -602,7 +602,7 @@ class _BuildingManagementPageState extends State<BuildingManagementPage> {
                     // Unit status filter
                     Expanded(
                       child: DropdownButtonFormField<UnitStatus?>(
-                        initialValue: _selectedUnitStatusFilter,
+                        value: _selectedUnitStatusFilter,
                         decoration: const InputDecoration(
                           labelText: 'סטטוס',
                           border: OutlineInputBorder(),

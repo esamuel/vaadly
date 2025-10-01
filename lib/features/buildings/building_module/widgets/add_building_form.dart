@@ -304,7 +304,7 @@ class _AddBuildingFormState extends State<AddBuildingForm> {
 
             // Building Type
             DropdownButtonFormField<String>(
-              initialValue: _selectedBuildingType,
+              value: _selectedBuildingType,
               decoration: const InputDecoration(
                 labelText: 'סוג בניין *',
                 border: OutlineInputBorder(),

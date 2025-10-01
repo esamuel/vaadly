@@ -244,13 +244,15 @@ class FirebaseBuildingService {
     return Stream.fromFuture(FirebaseService.initialize()).asyncExpand((_) {
       return FirebaseService.firestore
           .collection(_collection)
-          .orderBy('createdAt', descending: true)
+          // Avoid orderBy to handle mixed createdAt types (Timestamp/String)
           .snapshots()
           .map((snapshot) {
         final buildings = snapshot.docs.map((doc) {
           return Building.fromMap(doc.data(), doc.id);
         }).toList();
 
+        // Sort in memory by createdAt desc to keep UX, robust to mixed types
+        buildings.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         print('🔄 Buildings stream updated: ${buildings.length} buildings');
         return buildings;
       });

@@ -111,41 +111,8 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
       debugPrint('📊 Settings: Building data - Address: ${loaded.address}, City: ${loaded.city}');
       debugPrint('📊 Settings: Building data - Floors: ${loaded.totalFloors}, Units: ${loaded.totalUnits}');
 
-      // Auto-correct wrong name/address if needed based on building context
-      String correctedName = loaded.name;
-      String correctedAddress = loaded.address;
-      bool needsCorrection = false;
-
-      // Get the correct building name from BuildingContextService if available
-      String? contextBuildingName = BuildingContextService.hasBuilding 
-          ? BuildingContextService.currentBuilding?.buildingName 
-          : null;
-
-      // If we have context and the stored name doesn't match, correct it
-      if (contextBuildingName != null && contextBuildingName.isNotEmpty) {
-        if (correctedName.trim() != contextBuildingName.trim()) {
-          debugPrint('Building name correction: "$correctedName" -> "$contextBuildingName"');
-          correctedName = contextBuildingName;
-          needsCorrection = true;
-        }
-        if (correctedAddress.trim() != contextBuildingName.trim() && correctedAddress.trim() != loaded.address.trim()) {
-          debugPrint('Building address correction: "$correctedAddress" -> "$contextBuildingName"');
-          correctedAddress = contextBuildingName;
-          needsCorrection = true;
-        }
-      }
-
-      // Fallback: specific hardcoded corrections for known data issues
-      if (correctedName.trim() == 'לוי אשכול 24') {
-        correctedName = 'בורלא 14';
-        needsCorrection = true;
-      }
-      if (correctedAddress.trim() == 'לוי אשכול 24') {
-        correctedAddress = 'בורלא 14';
-        needsCorrection = true;
-      }
-
-      _building = loaded.copyWith(name: correctedName, address: correctedAddress);
+      // Use the data as-is from Firestore; do not auto-correct silently
+      _building = loaded;
 
       // Load maintenance settings document
       try {
@@ -188,22 +155,7 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
       debugPrint('   - Phone: "${_managerPhoneController.text}"');
       debugPrint('   - Email: "${_managerEmailController.text}"');
 
-      // Persist auto-correction back to Firestore if needed
-      if (needsCorrection) {
-        try {
-          await FirebaseFirestore.instance
-              .collection('buildings')
-              .doc(buildingId)
-              .update({
-            'name': correctedName,
-            'address': correctedAddress,
-            'updatedAt': Timestamp.now(),
-          });
-          debugPrint('✅ Corrected building data persisted (name/address)');
-        } catch (e) {
-          debugPrint('❌ Failed to persist corrected building data: $e');
-        }
-      }
+      // No persistence of name/address changes unless user saves explicitly
     } catch (e) {
       debugPrint('Failed to load building data: $e');
     } finally {
@@ -479,8 +431,8 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
 
             // Policy-triggered use of AppOwner pool
             SwitchListTile(
-              title: const Text('השתמש בבריכת הספקים של בעל האפליקציה בעת הצורך'),
-              subtitle: const Text('בריכה זו תופעל רק כאשר המדיניות מופעלת (לדוגמה, חוסר ספקים מתאימים או עלות גבוהה)'),
+              title: const Text('השתמש במאגר הספקים של בעל האפליקציה בעת הצורך'),
+              subtitle: const Text('מאגר זה יופעל רק כאשר המדיניות מופעלת (לדוגמה, חוסר ספקים מתאימים או עלות גבוהה)'),
               value: _usesAppOwnerPoolPolicy,
               onChanged: (v) => setState(() => _usesAppOwnerPoolPolicy = v),
             ),
@@ -593,9 +545,9 @@ class _BuildingSettingsDashboardState extends State<BuildingSettingsDashboard> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
+          color: color.withOpacity( 0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
+          border: Border.all(color: color.withOpacity( 0.3)),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

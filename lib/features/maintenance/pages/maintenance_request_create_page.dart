@@ -239,7 +239,7 @@ class _MaintenanceRequestCreatePageState extends State<MaintenanceRequestCreateP
       vendorIds.add(vendorDoc.id);
       tx.set(poolRef, {
         'poolId': 'default',
-        'name': 'בריכת ועד הבית (ברירת מחדל)',
+        'name': 'מאגר ועד הבית (ברירת מחדל)',
         'scope': 'committee',
         'active': true,
         'vendorIds': vendorIds,
@@ -285,7 +285,7 @@ class _MaintenanceRequestCreatePageState extends State<MaintenanceRequestCreateP
                     labelText: 'קטגוריה',
                     border: OutlineInputBorder(),
                   ),
-                  initialValue: _category,
+                  value: _category,
                   items: const [
                     DropdownMenuItem(value: 'plumbing', child: Text('אינסטלציה')),
                     DropdownMenuItem(value: 'electrical', child: Text('חשמל')),
@@ -305,7 +305,7 @@ class _MaintenanceRequestCreatePageState extends State<MaintenanceRequestCreateP
                     labelText: 'עדיפות',
                     border: OutlineInputBorder(),
                   ),
-                  initialValue: _priority,
+                  value: _priority,
                   items: const [
                     DropdownMenuItem(value: 'נמוך', child: Text('נמוך')),
                     DropdownMenuItem(value: 'בינוני', child: Text('בינוני')),
@@ -342,7 +342,7 @@ class _MaintenanceRequestCreatePageState extends State<MaintenanceRequestCreateP
                 Row(
                   children: [
                     const Expanded(
-                      child: Text('ספקים בבריכת הוועד'),
+                      child: Text('ספקים במאגר הוועד'),
                     ),
                     TextButton.icon(
                       onPressed: _openAddVendorDialog,
@@ -362,14 +362,14 @@ class _MaintenanceRequestCreatePageState extends State<MaintenanceRequestCreateP
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: Colors.amber.shade200),
                             ),
-                            child: const Text('אין ספקים בבריכת הוועד. הוסף ספק חדש כדי להתחיל.'),
+                            child: const Text('אין ספקים במאגר הוועד. הוסף ספק חדש כדי להתחיל.'),
                           )
                         : DropdownButtonFormField<String>(
                             decoration: const InputDecoration(
                               labelText: 'בחר ספק (אופציונלי)',
                               border: OutlineInputBorder(),
                             ),
-                            initialValue: _selectedVendorId,
+                            value: _selectedVendorId,
                             items: _committeeVendors
                                 .map((v) => DropdownMenuItem(
                                       value: v['vendorId'] as String,

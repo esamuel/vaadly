@@ -8,6 +8,8 @@ import '../../core/config/app_links.dart';
 import '../../services/firebase_building_service.dart';
 import '../../core/utils/phone_number_formatter.dart';
 import '../../core/widgets/auth_wrapper.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CommitteeInvitationScreen extends StatefulWidget {
   final String buildingCode;
@@ -122,20 +124,65 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
 
       print('🔐 Creating committee account for: $email');
 
-      // Step 1: Create Firebase Auth account with email and password
-      // This automatically signs the user in and returns the Firebase User
-      final authUser =
-          await AuthService.createFirebaseAuthAccount(email, password);
-      print('✅ Firebase Auth account created and signed in: ${authUser.email}');
+      // Step 1: Ensure Firebase Auth session for this email
+      // Try create; if email exists, sign in; on wrong password, show error and exit
+      fb_auth.User? authUser;
+      try {
+        authUser = await AuthService.createFirebaseAuthAccount(email, password);
+        print('✅ Firebase Auth account created and signed in: ${authUser.email}');
+      } catch (createErr) {
+        final msg = createErr.toString();
+        final lower = msg.toLowerCase();
+        if (lower.contains('email-already-in-use') ||
+            msg.contains('האימייל כבר קיים') ||
+            lower.contains('already in use')) {
+          try {
+            final cred = await fb_auth.FirebaseAuth.instance
+                .signInWithEmailAndPassword(
+                    email: email.toLowerCase(), password: password);
+            authUser = cred.user;
+            print('✅ Signed in existing Firebase Auth user: ${authUser?.email}');
+          } on fb_auth.FirebaseAuthException catch (e) {
+            if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+              setState(() {
+                _errorMessage = 'הסיסמה שגויה לאימייל זה. אפשר לאפס סיסמה ולהמשיך.';
+              });
+              return; // Stop flow; user should reset password
+            }
+            rethrow;
+          }
+        } else {
+          rethrow;
+        }
+      }
 
-      // Step 2: Create user document in Firestore
-      final user = await AuthService.createUser(
-        email: email,
-        name: name,
-        role: UserRole.buildingCommittee,
-        buildingAccess: {_building!.id: 'admin'},
-      );
-      print('✅ User document created in Firestore');
+      // Step 2: Upsert user profile and grant committee admin on this building
+      final usersColl = FirebaseFirestore.instance.collection('users');
+      final existing = await usersColl
+          .where('email', isEqualTo: email.toLowerCase())
+          .limit(1)
+          .get();
+      if (existing.docs.isEmpty) {
+        await AuthService.createUser(
+          email: email,
+          name: name,
+          role: UserRole.buildingCommittee,
+          buildingAccess: {_building!.id: 'admin'},
+        );
+        print('✅ User document created in Firestore');
+      } else {
+        final doc = existing.docs.first;
+        final data = doc.data();
+        final current = Map<String, dynamic>.from(data['buildingAccess'] ?? {});
+        if (current[_building!.id] != 'admin') {
+          current[_building!.id] = 'admin';
+        }
+        await doc.reference.update({
+          'buildingAccess': current,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        print('🔄 Updated user building access for committee admin');
+      }
 
       // Step 3: Complete the sign-in process by loading the user into AuthService
       await AuthService.signInWithEmail(email, password);
@@ -585,7 +632,37 @@ class _CommitteeInvitationScreenState extends State<CommitteeInvitationScreen> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            onPressed: () async {
+                              final email = _emailController.text.trim();
+                              if (email.isEmpty) {
+                                setState(() {
+                                  _errorMessage = 'נא להזין אימייל לקבלת קישור לאיפוס סיסמה';
+                                });
+                                return;
+                              }
+                              try {
+                                await AuthService.sendPasswordResetEmail(email);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('נשלח קישור לאיפוס סיסמה אל $email')),
+                                  );
+                                }
+                              } catch (e) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+                                  );
+                                }
+                              }
+                            },
+                            child: const Text('שכחת סיסמה?'),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
 
                         // Error message
                         if (_errorMessage != null)

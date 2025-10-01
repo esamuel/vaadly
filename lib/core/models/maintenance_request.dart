@@ -213,6 +213,18 @@ class MaintenanceRequest {
     }
   }
 
+  // Helper method to parse DateTime from various formats
+  static DateTime _parseDateTime(dynamic value) {
+    if (value == null) return DateTime.now();
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.parse(value);
+    // Handle Firestore Timestamp
+    if (value.runtimeType.toString().contains('Timestamp')) {
+      return (value as dynamic).toDate() as DateTime;
+    }
+    return DateTime.now();
+  }
+
   // Factory methods
   factory MaintenanceRequest.fromMap(Map<String, dynamic> map) {
     return MaintenanceRequest(
@@ -236,11 +248,11 @@ class MaintenanceRequest {
       ),
       assignedVendorId: map['assignedVendorId'],
       assignedVendorName: map['assignedVendorName'],
-      reportedAt: DateTime.parse(map['reportedAt']),
-      assignedAt: map['assignedAt'] != null ? DateTime.parse(map['assignedAt']) : null,
-      startedAt: map['startedAt'] != null ? DateTime.parse(map['startedAt']) : null,
-      completedAt: map['completedAt'] != null ? DateTime.parse(map['completedAt']) : null,
-      cancelledAt: map['cancelledAt'] != null ? DateTime.parse(map['cancelledAt']) : null,
+      reportedAt: _parseDateTime(map['reportedAt']),
+      assignedAt: map['assignedAt'] != null ? _parseDateTime(map['assignedAt']) : null,
+      startedAt: map['startedAt'] != null ? _parseDateTime(map['startedAt']) : null,
+      completedAt: map['completedAt'] != null ? _parseDateTime(map['completedAt']) : null,
+      cancelledAt: map['cancelledAt'] != null ? _parseDateTime(map['cancelledAt']) : null,
       cancellationReason: map['cancellationReason'],
       rejectionReason: map['rejectionReason'],
       photoUrls: List<String>.from(map['photoUrls'] ?? []),
@@ -251,8 +263,8 @@ class MaintenanceRequest {
       notes: map['notes'],
       isUrgent: map['isUrgent'] ?? false,
       requiresImmediateAttention: map['requiresImmediateAttention'] ?? false,
-      createdAt: DateTime.parse(map['createdAt']),
-      updatedAt: DateTime.parse(map['updatedAt']),
+      createdAt: _parseDateTime(map['createdAt']),
+      updatedAt: _parseDateTime(map['updatedAt']),
       isActive: map['isActive'] ?? true,
     );
   }

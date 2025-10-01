@@ -315,7 +315,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                initialValue: _selectedCategory,
+                value: _selectedCategory,
                 decoration: InputDecoration(
                   prefixIcon: Icon(_getCategoryIcon(_selectedCategory)),
                   border: const OutlineInputBorder(),
@@ -348,7 +348,7 @@ class _ReportIssueScreenState extends State<ReportIssueScreen> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                initialValue: _selectedPriority,
+                value: _selectedPriority,
                 decoration: InputDecoration(
                   prefixIcon: Icon(Icons.priority_high, color: _getPriorityColor(_selectedPriority)),
                   border: const OutlineInputBorder(),

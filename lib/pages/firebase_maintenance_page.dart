@@ -272,7 +272,7 @@ class _FirebaseMaintenancePageState extends State<FirebaseMaintenancePage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: DropdownButtonFormField<Building>(
-                    initialValue: _selectedBuilding,
+                    value: _selectedBuilding,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -411,7 +411,7 @@ class _FirebaseMaintenancePageState extends State<FirebaseMaintenancePage> {
                     // Category filter
                     Expanded(
                       child: DropdownButtonFormField<MaintenanceCategory?>(
-                        initialValue: _selectedCategoryFilter,
+                        value: _selectedCategoryFilter,
                         decoration: const InputDecoration(
                           labelText: 'קטגוריה',
                           border: OutlineInputBorder(),
@@ -439,7 +439,7 @@ class _FirebaseMaintenancePageState extends State<FirebaseMaintenancePage> {
                     // Priority filter
                     Expanded(
                       child: DropdownButtonFormField<MaintenancePriority?>(
-                        initialValue: _selectedPriorityFilter,
+                        value: _selectedPriorityFilter,
                         decoration: const InputDecoration(
                           labelText: 'עדיפות',
                           border: OutlineInputBorder(),
@@ -472,7 +472,7 @@ class _FirebaseMaintenancePageState extends State<FirebaseMaintenancePage> {
                     // Status filter
                     Expanded(
                       child: DropdownButtonFormField<MaintenanceStatus?>(
-                        initialValue: _selectedStatusFilter,
+                        value: _selectedStatusFilter,
                         decoration: const InputDecoration(
                           labelText: 'סטטוס',
                           border: OutlineInputBorder(),
@@ -1015,8 +1015,6 @@ class _FirebaseMaintenancePageState extends State<FirebaseMaintenancePage> {
         return Icons.foundation;
       case MaintenanceCategory.sanitation:
         return Icons.cleaning_services;
-      case MaintenanceCategory.sanitation:
-        return 'תברואה';
       case MaintenanceCategory.general:
         return Icons.build;
     }
@@ -1185,7 +1183,7 @@ class _AddMaintenanceRequestDialogState extends State<_AddMaintenanceRequestDial
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<MaintenanceCategory>(
-                              initialValue: _selectedCategory,
+                              value: _selectedCategory,
                               decoration: const InputDecoration(
                                 labelText: 'קטגוריה',
                                 border: OutlineInputBorder(),
@@ -1206,7 +1204,7 @@ class _AddMaintenanceRequestDialogState extends State<_AddMaintenanceRequestDial
                           const SizedBox(width: 16),
                           Expanded(
                             child: DropdownButtonFormField<MaintenancePriority>(
-                              initialValue: _selectedPriority,
+                              value: _selectedPriority,
                               decoration: const InputDecoration(
                                 labelText: 'עדיפות',
                                 border: OutlineInputBorder(),

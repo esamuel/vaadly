@@ -17,7 +17,7 @@ Future<void> main() async {
   const ownerId = 'demo_app_owner';
 
   final vendors = <VendorProfile>[
-    VendorProfile(
+    const VendorProfile(
       vendorId: 'v_plumbing_a',
       name: 'AquaFix Plumbing',
       contactEmail: 'contact@aquafix.co.il',
@@ -31,7 +31,7 @@ Future<void> main() async {
       hourlyRateIls: 220,
       minHours: 1,
     ),
-    VendorProfile(
+    const VendorProfile(
       vendorId: 'v_electrical_a',
       name: 'VoltMaster Electric',
       contactEmail: 'info@voltmaster.co.il',
@@ -45,7 +45,7 @@ Future<void> main() async {
       hourlyRateIls: 240,
       minHours: 1,
     ),
-    VendorProfile(
+    const VendorProfile(
       vendorId: 'v_elevator_a',
       name: 'ElevatePro',
       contactEmail: 'support@elevatepro.co.il',
@@ -56,7 +56,7 @@ Future<void> main() async {
       jobsDone: 70,
       slaAvgHours: 6,
     ),
-    VendorProfile(
+    const VendorProfile(
       vendorId: 'v_gardening_a',
       name: 'GreenLeaf Gardening',
       contactEmail: 'team@greenleaf.co.il',
@@ -70,7 +70,7 @@ Future<void> main() async {
       hourlyRateIls: 180,
       minHours: 2,
     ),
-    VendorProfile(
+    const VendorProfile(
       vendorId: 'v_sanitation_a',
       name: 'CleanCity Sanitation',
       contactEmail: 'hello@cleancity.co.il',

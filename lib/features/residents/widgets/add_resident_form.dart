@@ -213,6 +213,19 @@ class _AddResidentFormState extends State<AddResidentForm> {
 
   void _submitForm() {
     if (_formKey.currentState!.validate()) {
+      // Extra guard using known building limits
+      if (_totalUnits != null) {
+        final apt = int.tryParse(_apartmentController.text.trim());
+        if (apt == null || apt < 1 || apt > _totalUnits!) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('מספר הדירה אינו תקין. המקסימום בבניין הוא ${_totalUnits!}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+      }
       final resident = Resident(
         id: widget.residentToEdit?.id ?? '',
         firstName: _firstNameController.text.trim(),
@@ -313,11 +326,16 @@ class _AddResidentFormState extends State<AddResidentForm> {
             // Apartment Number
             TextFormField(
               controller: _apartmentController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'מספר דירה *',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
+                helperText: _totalUnits != null ? 'טווח תקין: 1 - ${_totalUnits!}' : null,
               ),
               textDirection: TextDirection.rtl,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+              ],
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'מספר דירה הוא שדה חובה';
@@ -460,7 +478,7 @@ class _AddResidentFormState extends State<AddResidentForm> {
 
             // Resident Type
             DropdownButtonFormField<ResidentType>(
-              initialValue: _selectedType,
+              value: _selectedType,
               decoration: const InputDecoration(
                 labelText: 'סוג דייר *',
                 border: OutlineInputBorder(),
@@ -482,7 +500,7 @@ class _AddResidentFormState extends State<AddResidentForm> {
 
             // Status
             DropdownButtonFormField<ResidentStatus>(
-              initialValue: _selectedStatus,
+              value: _selectedStatus,
               decoration: const InputDecoration(
                 labelText: 'סטטוס *',
                 border: OutlineInputBorder(),

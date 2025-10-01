@@ -228,7 +228,7 @@ class _FirebaseResidentsPageState extends State<FirebaseResidentsPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: DropdownButtonFormField<Building>(
-                    initialValue: _selectedBuilding,
+                    value: _selectedBuilding,
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -330,7 +330,7 @@ class _FirebaseResidentsPageState extends State<FirebaseResidentsPage> {
                     // Type filter
                     Expanded(
                       child: DropdownButtonFormField<ResidentType?>(
-                        initialValue: _selectedTypeFilter,
+                        value: _selectedTypeFilter,
                         decoration: const InputDecoration(
                           labelText: 'סוג דייר',
                           border: OutlineInputBorder(),
@@ -361,7 +361,7 @@ class _FirebaseResidentsPageState extends State<FirebaseResidentsPage> {
                     // Status filter
                     Expanded(
                       child: DropdownButtonFormField<ResidentStatus?>(
-                        initialValue: _selectedStatusFilter,
+                        value: _selectedStatusFilter,
                         decoration: const InputDecoration(
                           labelText: 'סטטוס',
                           border: OutlineInputBorder(),
@@ -1052,7 +1052,7 @@ class _AddResidentDialogState extends State<_AddResidentDialog> {
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<ResidentType>(
-                              initialValue: _selectedType,
+                              value: _selectedType,
                               decoration: const InputDecoration(
                                 labelText: 'סוג דייר',
                                 border: OutlineInputBorder(),
@@ -1073,7 +1073,7 @@ class _AddResidentDialogState extends State<_AddResidentDialog> {
                           const SizedBox(width: 16),
                           Expanded(
                             child: DropdownButtonFormField<ResidentStatus>(
-                              initialValue: _selectedStatus,
+                              value: _selectedStatus,
                               decoration: const InputDecoration(
                                 labelText: 'סטטוס',
                                 border: OutlineInputBorder(),

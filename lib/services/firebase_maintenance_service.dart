@@ -6,15 +6,34 @@ class FirebaseMaintenanceService {
   
   // Stream maintenance requests for a building
   static Stream<List<MaintenanceRequest>> streamMaintenanceRequests(String buildingId) {
+    print('🔍 FirebaseMaintenanceService: Starting stream for building: $buildingId');
+    print('🔍 FirebaseMaintenanceService: Query path: buildings/$buildingId/maintenance_requests');
+
     return _firestore
         .collection('buildings')
         .doc(buildingId)
         .collection('maintenance_requests')
-        .orderBy('reportedAt', descending: true)
+        // Temporarily remove orderBy to avoid index issues
+        // .orderBy('reportedAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((doc) => MaintenanceRequest.fromMap({...doc.data(), 'id': doc.id}))
-            .toList());
+        .map((snap) {
+          print('🔍 FirebaseMaintenanceService: Received ${snap.docs.length} documents from stream');
+          if (snap.docs.isEmpty) {
+            print('🔍 FirebaseMaintenanceService: No documents found in collection');
+          }
+          final requests = snap.docs.map((doc) {
+            print('🔍 Document ID: ${doc.id}');
+            print('🔍 Document data: ${doc.data()}');
+            try {
+              return MaintenanceRequest.fromMap({...doc.data(), 'id': doc.id});
+            } catch (e) {
+              print('❌ Error parsing document ${doc.id}: $e');
+              rethrow;
+            }
+          }).toList();
+          print('🔍 FirebaseMaintenanceService: Successfully parsed ${requests.length} requests');
+          return requests;
+        });
   }
 
   static Future<bool> putOnHold(String buildingId, String requestId) async {
@@ -81,12 +100,24 @@ class FirebaseMaintenanceService {
   // Add a maintenance request
   static Future<String?> addMaintenanceRequest(String buildingId, MaintenanceRequest request) async {
     try {
+      final data = request.toMap();
+
+      // Convert DateTime strings to Firestore Timestamps for better compatibility
+      final now = FieldValue.serverTimestamp();
+      data['createdAt'] = now;
+      data['updatedAt'] = now;
+      data['reportedAt'] = Timestamp.fromDate(request.reportedAt);
+      if (request.assignedAt != null) data['assignedAt'] = Timestamp.fromDate(request.assignedAt!);
+      if (request.startedAt != null) data['startedAt'] = Timestamp.fromDate(request.startedAt!);
+      if (request.completedAt != null) data['completedAt'] = Timestamp.fromDate(request.completedAt!);
+      if (request.cancelledAt != null) data['cancelledAt'] = Timestamp.fromDate(request.cancelledAt!);
+
       final docRef = await _firestore
           .collection('buildings')
           .doc(buildingId)
           .collection('maintenance_requests')
-          .add(request.toMap());
-      
+          .add(data);
+
       print('✅ Maintenance request added with ID: ${docRef.id}');
       return docRef.id;
     } catch (e) {
@@ -98,13 +129,24 @@ class FirebaseMaintenanceService {
   // Update a maintenance request
   static Future<bool> updateMaintenanceRequest(String buildingId, String requestId, MaintenanceRequest request) async {
     try {
+      final data = request.toMap();
+
+      // Convert DateTime strings to Firestore Timestamps
+      data['updatedAt'] = FieldValue.serverTimestamp();
+      data['reportedAt'] = Timestamp.fromDate(request.reportedAt);
+      if (request.assignedAt != null) data['assignedAt'] = Timestamp.fromDate(request.assignedAt!);
+      if (request.startedAt != null) data['startedAt'] = Timestamp.fromDate(request.startedAt!);
+      if (request.completedAt != null) data['completedAt'] = Timestamp.fromDate(request.completedAt!);
+      if (request.cancelledAt != null) data['cancelledAt'] = Timestamp.fromDate(request.cancelledAt!);
+      data['createdAt'] = Timestamp.fromDate(request.createdAt);
+
       await _firestore
           .collection('buildings')
           .doc(buildingId)
           .collection('maintenance_requests')
           .doc(requestId)
-          .update(request.toMap());
-      
+          .update(data);
+
       print('✅ Maintenance request updated');
       return true;
     } catch (e) {
@@ -432,14 +474,4 @@ class FirebaseMaintenanceService {
     ];
   }
 
-  // Helper method to parse DateTime from Firestore data
-  static DateTime _parseDateTime(dynamic value) {
-    if (value == null) return DateTime.now();
-    if (value is String) return DateTime.parse(value);
-    if (value.runtimeType.toString().contains('Timestamp')) {
-      // Handle Firestore Timestamp
-      return (value as dynamic).toDate() as DateTime;
-    }
-    return DateTime.now();
-  }
 }

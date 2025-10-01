@@ -60,7 +60,7 @@ class SimpleFirebaseService {
       print('❌ Error updating document in $collection: $e');
       rethrow;
     }
-  static Future<void> initializeSampleData() async {
+  Future<void> initializeSampleData() async {
     try {
       // Create demo building with specific ID
       final buildingData = {
@@ -89,7 +89,7 @@ class SimpleFirebaseService {
       await _firestore!.collection('buildings').doc('demo_building_1').set(buildingData);
       
       // Create sample maintenance requests
-      await _initializeSampleMaintenanceRequests();
+      await initializeSampleMaintenanceRequests();
       
       // Create committee vendor profiles
       await _initializeCommitteeVendors();
@@ -100,7 +100,7 @@ class SimpleFirebaseService {
     }
   }
 
-  static Future<void> _initializeSampleMaintenanceRequests() async {
+  Future<void> initializeSampleMaintenanceRequests() async {
     final now = DateTime.now();
     final requests = [
       {
@@ -160,7 +160,7 @@ class VaadlyMainApp extends StatelessWidget {
           centerTitle: true,
           elevation: 2,
         ),
-        cardTheme: CardThemeData(
+        cardTheme: CardTheme(
           elevation: 2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -188,9 +188,9 @@ class MainNavigationPage extends StatefulWidget {
 }
 
 class _MainNavigationPageState extends State<MainNavigationPage> {
-  int _currentIndex = 0;
+  int currentIndex = 0;
 
-  final List<Widget> _pages = [
+  final List<Widget> pages = [
     const VaadlyDashboardPage(),
     const ResidentsPagePlaceholder(),
     const BuildingManagementPageSimple(),
@@ -199,7 +199,7 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
     const SettingsPagePlaceholder(),
   ];
 
-  final List<BottomNavigationBarItem> _bottomNavItems = [
+  final List<BottomNavigationBarItem> bottomNavItems = [
     const BottomNavigationBarItem(
       icon: Icon(Icons.dashboard),
       label: 'דשבורד',
@@ -229,16 +229,16 @@ class _MainNavigationPageState extends State<MainNavigationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_currentIndex],
+      body: pages[currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        currentIndex: _currentIndex,
+        currentIndex: currentIndex,
         onTap: (index) {
           setState(() {
-            _currentIndex = index;
+            currentIndex = index;
           });
         },
-        items: _bottomNavItems,
+        items: bottomNavItems,
         selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey[600],
       ),
@@ -254,40 +254,40 @@ class VaadlyDashboardPage extends StatefulWidget {
 }
 
 class _VaadlyDashboardPageState extends State<VaadlyDashboardPage> {
-  Building? _selectedBuilding;
-  List<Building> _buildings = [];
-  bool _loading = false;
+  Building? selectedBuilding;
+  List<Building> buildings = [];
+  bool loading = false;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    loadData();
   }
 
-  void _loadData() async {
-    setState(() => _loading = true);
+  void loadData() async {
+    setState(() => loading = true);
     try {
       await SimpleFirebaseService.initialize();
       await SimpleFirebaseService.initializeSampleData();
 
       final buildingsSnapshot = await SimpleFirebaseService.getDocuments('buildings');
-      _buildings = buildingsSnapshot.docs.map((doc) {
+      buildings = buildingsSnapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
         return Building.fromMap(data, doc.id);
       }).toList();
 
-      if (_buildings.isNotEmpty) {
-        _selectedBuilding = _buildings.first;
+      if (buildings.isNotEmpty) {
+        selectedBuilding = buildings.first;
       }
 
-      setState(() => _loading = false);
+      setState(() => loading = false);
     } catch (e) {
       print('❌ Dashboard: Error loading data: $e');
-      setState(() => _loading = false);
+      setState(() => loading = false);
     }
   }
 
-  void _addBuilding(Building building) async {
+  void addBuilding(Building building) async {
     try {
       if (building.id.isEmpty) {
         final docRef = await SimpleFirebaseService.addDocument('buildings', building.toMap());
@@ -297,7 +297,7 @@ class _VaadlyDashboardPageState extends State<VaadlyDashboardPage> {
         print('✅ Building updated in Firebase');
       }
 
-      _loadData();
+      loadData();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -326,7 +326,7 @@ class _VaadlyDashboardPageState extends State<VaadlyDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
+    if (loading) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('📊 דשבורד'),
@@ -336,7 +336,7 @@ class _VaadlyDashboardPageState extends State<VaadlyDashboardPage> {
       );
     }
 
-    if (_buildings.isEmpty) {
+    if (buildings.isEmpty) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('📊 דשבורד'),
@@ -358,7 +358,7 @@ class _VaadlyDashboardPageState extends State<VaadlyDashboardPage> {
           onPressed: () {
             Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (context) => AddBuildingForm(onBuildingAdded: _addBuilding),
+                builder: (context) => AddBuildingForm(onBuildingAdded: addBuilding),
               ),
             );
           },
@@ -395,12 +395,12 @@ class _VaadlyDashboardPageState extends State<VaadlyDashboardPage> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: DropdownButtonFormField<Building>(
-                            initialValue: _selectedBuilding,
+                            value: selectedBuilding,
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
-                            items: _buildings.map((building) {
+                            items: buildings.map((building) {
                               return DropdownMenuItem(
                                 value: building,
                                 child: Text(building.name),
@@ -408,7 +408,7 @@ class _VaadlyDashboardPageState extends State<VaadlyDashboardPage> {
                             }).toList(),
                             onChanged: (building) {
                               setState(() {
-                                _selectedBuilding = building;
+                                selectedBuilding = building;
                               });
                             },
                           ),
@@ -422,7 +422,7 @@ class _VaadlyDashboardPageState extends State<VaadlyDashboardPage> {
             const SizedBox(height: 20),
 
             // Selected building info
-            if (_selectedBuilding != null) ...[
+            if (selectedBuilding != null) ...[
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
@@ -438,14 +438,14 @@ class _VaadlyDashboardPageState extends State<VaadlyDashboardPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  _selectedBuilding!.name,
+                                  selectedBuilding!.name,
                                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: Theme.of(context).colorScheme.primary,
                                   ),
                                 ),
                                 Text(
-                                  _selectedBuilding!.fullAddress,
+                                  selectedBuilding!.fullAddress,
                                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                                     color: Colors.grey[600],
                                   ),
@@ -458,9 +458,9 @@ class _VaadlyDashboardPageState extends State<VaadlyDashboardPage> {
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          Expanded(child: _buildInfoRow('יחידות', _selectedBuilding!.totalUnits.toString())),
-                          Expanded(child: _buildInfoRow('קומות', _selectedBuilding!.totalFloors.toString())),
-                          Expanded(child: _buildInfoRow('חניות', _selectedBuilding!.parkingSpaces.toString())),
+                          Expanded(child: buildInfoRow('יחידות', selectedBuilding!.totalUnits.toString())),
+                          Expanded(child: buildInfoRow('קומות', selectedBuilding!.totalFloors.toString())),
+                          Expanded(child: buildInfoRow('חניות', selectedBuilding!.parkingSpaces.toString())),
                         ],
                       ),
                     ],
@@ -478,9 +478,9 @@ class _VaadlyDashboardPageState extends State<VaadlyDashboardPage> {
             const SizedBox(height: 16),
             Row(
               children: [
-                Expanded(child: _buildStatCard(context, 'בניינים', _buildings.length.toString(), Icons.business, Colors.indigo)),
+                Expanded(child: buildStatCard(context, 'בניינים', buildings.length.toString(), Icons.business, Colors.indigo)),
                 const SizedBox(width: 16),
-                Expanded(child: _buildStatCard(context, 'יחידות כללית', _buildings.fold<int>(0, (sum, b) => sum + b.totalUnits).toString(), Icons.apartment, Colors.teal)),
+                Expanded(child: buildStatCard(context, 'יחידות כללית', buildings.fold<int>(0, (sum, b) => sum + b.totalUnits).toString(), Icons.apartment, Colors.teal)),
               ],
             ),
           ],
@@ -490,7 +490,7 @@ class _VaadlyDashboardPageState extends State<VaadlyDashboardPage> {
         onPressed: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => AddBuildingForm(onBuildingAdded: _addBuilding),
+              builder: (context) => AddBuildingForm(onBuildingAdded: addBuilding),
             ),
           );
         },
@@ -502,7 +502,7 @@ class _VaadlyDashboardPageState extends State<VaadlyDashboardPage> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget buildInfoRow(String label, String value) {
     return Column(
       children: [
         Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -511,7 +511,7 @@ class _VaadlyDashboardPageState extends State<VaadlyDashboardPage> {
     );
   }
 
-  Widget _buildStatCard(BuildContext context, String title, String value, IconData icon, Color color) {
+  Widget buildStatCard(BuildContext context, String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -540,35 +540,35 @@ class BuildingManagementPageSimple extends StatefulWidget {
 }
 
 class _BuildingManagementPageSimpleState extends State<BuildingManagementPageSimple> {
-  List<Building> _buildings = [];
-  bool _loading = false;
+  List<Building> buildings = [];
+  bool loading = false;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    loadData();
   }
 
-  void _loadData() async {
-    setState(() => _loading = true);
+  void loadData() async {
+    setState(() => loading = true);
     try {
       await SimpleFirebaseService.initialize();
       await SimpleFirebaseService.initializeSampleData();
 
       final buildingsSnapshot = await SimpleFirebaseService.getDocuments('buildings');
-      _buildings = buildingsSnapshot.docs.map((doc) {
+      buildings = buildingsSnapshot.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
         return Building.fromMap(data, doc.id);
       }).toList();
 
-      setState(() => _loading = false);
+      setState(() => loading = false);
     } catch (e) {
       print('❌ Building Management: Error loading data: $e');
-      setState(() => _loading = false);
+      setState(() => loading = false);
     }
   }
 
-  void _addBuilding(Building building) async {
+  void addBuilding(Building building) async {
     try {
       if (building.id.isEmpty) {
         final docRef = await SimpleFirebaseService.addDocument('buildings', building.toMap());
@@ -578,7 +578,7 @@ class _BuildingManagementPageSimpleState extends State<BuildingManagementPageSim
         print('✅ Building updated in Firebase');
       }
 
-      _loadData();
+      loadData();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -612,9 +612,9 @@ class _BuildingManagementPageSimpleState extends State<BuildingManagementPageSim
         title: const Text('🏢 ניהול בניינים'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: _loading
+      body: loading
           ? const Center(child: CircularProgressIndicator())
-          : _buildings.isEmpty
+          : buildings.isEmpty
               ? const Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -627,9 +627,9 @@ class _BuildingManagementPageSimpleState extends State<BuildingManagementPageSim
                 )
               : ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: _buildings.length,
+                  itemCount: buildings.length,
                   itemBuilder: (context, index) {
-                    final building = _buildings[index];
+                    final building = buildings[index];
                     return Card(
                       margin: const EdgeInsets.only(bottom: 8),
                       child: ListTile(
@@ -649,7 +649,7 @@ class _BuildingManagementPageSimpleState extends State<BuildingManagementPageSim
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (context) => AddBuildingForm(
-                                  onBuildingAdded: _addBuilding,
+                                  onBuildingAdded: addBuilding,
                                   buildingToEdit: building,
                                 ),
                               ),
@@ -664,7 +664,7 @@ class _BuildingManagementPageSimpleState extends State<BuildingManagementPageSim
         onPressed: () {
           Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => AddBuildingForm(onBuildingAdded: _addBuilding),
+              builder: (context) => AddBuildingForm(onBuildingAdded: addBuilding),
             ),
           );
         },

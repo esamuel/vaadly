@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import '../../../core/models/resident.dart';
 import '../../../core/services/resident_service.dart';
+import '../../../core/services/building_context_service.dart';
 import '../../../services/firebase_resident_service.dart';
 import '../../../services/firebase_activity_service.dart';
 import '../../../core/services/auth_service.dart';
@@ -46,19 +47,38 @@ class _ResidentsPageState extends State<ResidentsPage> {
   }
 
   Future<void> _initializeBuildingContext() async {
-    // Get the building ID from current user context
+    // Prefer explicit building context if present (works for owners and residents too)
+    if (BuildingContextService.hasBuilding) {
+      _buildingId = BuildingContextService.buildingId;
+      print('🔍 ResidentsPage - Using building context ID: $_buildingId');
+      _subscribeToResidents();
+      return;
+    }
+
+    // Fall back to user-based context
     final user = AuthService.currentUser;
     print('🔍 ResidentsPage - Current user: ${user?.name} (${user?.role})');
     print('🔍 ResidentsPage - Building access: ${user?.buildingAccess}');
-    
-    if (user != null && user.isBuildingCommittee) {
-      _buildingId = user.buildingAccess.keys.first;
-      print('🔍 ResidentsPage - Using building ID: $_buildingId');
-      _subscribeToResidents();
-    } else {
-      // Fallback to old service for other users
-      _loadResidentsLocal();
+
+    if (user != null) {
+      if (user.isBuildingCommittee && user.buildingAccess.isNotEmpty) {
+        _buildingId = user.buildingAccess.keys.first;
+        print('🔍 ResidentsPage - Using committee building ID: $_buildingId');
+        _subscribeToResidents();
+        return;
+      }
+      // If user has any building access, use the first (owner with 'all' won’t match a specific id)
+      if (user.buildingAccess.isNotEmpty && user.buildingAccess.keys.first != 'all') {
+        _buildingId = user.buildingAccess.keys.first;
+        print('🔍 ResidentsPage - Using first accessible building ID: $_buildingId');
+        _subscribeToResidents();
+        return;
+      }
     }
+
+    // No resolvable building ID; load local placeholder data to avoid hard stop
+    print('⚠️ ResidentsPage - No building context; loading local sample residents');
+    _loadResidentsLocal();
   }
 
   void _subscribeToResidents() {
@@ -147,6 +167,8 @@ class _ResidentsPageState extends State<ResidentsPage> {
   }
 
   Future<void> _addResident(Resident resident) async {
+    // Late-resolve buildingId from context if needed
+    _buildingId ??= BuildingContextService.buildingId;
     if (_buildingId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -542,7 +564,7 @@ subtitle: 'app ${resident.apartmentNumber}, ${resident.firstName} ${resident.las
                     // Type filter
                     Expanded(
                       child: DropdownButtonFormField<ResidentType?>(
-                        initialValue: _selectedTypeFilter,
+                        value: _selectedTypeFilter,
                         decoration: const InputDecoration(
                           labelText: 'סוג דייר',
                           border: OutlineInputBorder(),
@@ -573,7 +595,7 @@ subtitle: 'app ${resident.apartmentNumber}, ${resident.firstName} ${resident.las
                     // Status filter
                     Expanded(
                       child: DropdownButtonFormField<ResidentStatus?>(
-                        initialValue: _selectedStatusFilter,
+                        value: _selectedStatusFilter,
                         decoration: const InputDecoration(
                           labelText: 'סטטוס',
                           border: OutlineInputBorder(),

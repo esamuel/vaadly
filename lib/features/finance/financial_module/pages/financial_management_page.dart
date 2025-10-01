@@ -108,7 +108,7 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
               padding: const EdgeInsets.all(16),
               child: _buildings.isNotEmpty
                   ? DropdownButtonFormField<String>(
-                      initialValue: _selectedBuildingId,
+                      value: _selectedBuildingId,
                       decoration: const InputDecoration(
                         labelText: 'בחר בניין',
                         border: OutlineInputBorder(),
@@ -496,9 +496,9 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Column(
         children: [
@@ -667,7 +667,7 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     DropdownButtonFormField<InvoiceType>(
-                      initialValue: selectedType,
+                      value: selectedType,
                       decoration: const InputDecoration(
                         labelText: 'סוג חשבונית',
                         border: OutlineInputBorder(),
@@ -807,7 +807,7 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     DropdownButtonFormField<ExpenseCategory>(
-                      initialValue: selectedCategory,
+                      value: selectedCategory,
                       decoration: const InputDecoration(
                         labelText: 'קטגורית הוצאה',
                         border: OutlineInputBorder(),
@@ -869,7 +869,7 @@ class _FinancialManagementPageState extends State<FinancialManagementPage> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<ExpensePriority>(
-                      initialValue: selectedPriority,
+                      value: selectedPriority,
                       decoration: const InputDecoration(
                         labelText: 'עדיפות',
                         border: OutlineInputBorder(),

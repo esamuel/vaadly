@@ -4,7 +4,6 @@ import '../../../core/models/pricing_calculator.dart';
 import '../../../core/services/pricing_calculator_service.dart';
 import '../../../core/models/building.dart' hide BuildingType, BuildingAmenity;
 import '../../../services/firebase_building_service.dart';
-import '../../../core/services/financial_service.dart';
 import '../../../core/models/invoice.dart';
 import '../../../core/models/expense.dart';
 import '../../../services/firebase_financial_service.dart';
@@ -241,7 +240,7 @@ class _PricingCalculatorPageState extends State<PricingCalculatorPage> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<Building>(
-              initialValue: _selectedBuilding,
+              value: _selectedBuilding,
               decoration: const InputDecoration(
                 labelText: 'בניין',
                 border: OutlineInputBorder(),
@@ -500,7 +499,7 @@ class _PricingCalculatorPageState extends State<PricingCalculatorPage> {
                 style: TextStyle(fontWeight: FontWeight.w500)),
             const SizedBox(height: 8),
             DropdownButtonFormField<ContractDuration>(
-              initialValue: _selectedContractDuration,
+              value: _selectedContractDuration,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
               ),

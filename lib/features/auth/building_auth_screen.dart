@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/services/building_context_service.dart';
 import '../../core/models/building_context.dart';
+import '../../core/widgets/auth_wrapper.dart';
 
 class BuildingAuthScreen extends StatefulWidget {
   final String buildingCode;
@@ -67,18 +68,32 @@ class _BuildingAuthScreenState extends State<BuildingAuthScreen> {
       );
 
       if (user != null && mounted) {
-        // Check if user has access to this building
-        if (!user.canAccessBuilding(_buildingContext!.buildingId)) {
+        // Check if user has access to this building (by id OR code OR 'all')
+        final id = _buildingContext!.buildingId;
+        final code = _buildingContext!.buildingCode;
+        final accessMap = user.buildingAccess;
+        final hasAccess = user.isAppOwner ||
+            accessMap.containsKey('all') ||
+            accessMap.containsKey(id) ||
+            accessMap.containsKey(code);
+
+        if (!hasAccess) {
           await AuthService.signOut();
           setState(() {
-            _errorMessage = 'You do not have access to this building';
+            _errorMessage = 'אין לך גישה לבניין זה';
           });
           return;
         }
 
-        // Let AuthWrapper handle routing to appropriate dashboard based on user role
-        // Just trigger a rebuild by setting state
-        setState(() {});
+        // Navigate to main app wrapper to route by role/access and building context
+        await Future.delayed(const Duration(milliseconds: 150));
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => AuthWrapper(buildingCode: _buildingContext!.buildingCode),
+          ),
+          (route) => false,
+        );
       }
     } catch (e) {
       setState(() {
@@ -99,6 +114,7 @@ class _BuildingAuthScreenState extends State<BuildingAuthScreen> {
   }
 
   void _showForgotPasswordDialog() {
+    final resetEmailController = TextEditingController(text: _emailController.text);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -109,74 +125,131 @@ class _BuildingAuthScreenState extends State<BuildingAuthScreen> {
             Text('עזרה עם כניסה לחשבון'),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'שכחת את פרטי הכניסה שלך?',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            const Text('📧 פנה למנהל הבניין:'),
-            const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.indigo.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.indigo.withOpacity(0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _buildingContext!.managerName,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+        content: StatefulBuilder(
+          builder: (context, setState) => SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'שכחת את הסיסמה?',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text('נשלח קישור לאיפוס סיסמה למייל שלך:'),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: resetEmailController,
+                  keyboardType: TextInputType.emailAddress,
+                  textDirection: TextDirection.ltr,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    hintText: 'you@example.com',
+                    prefixIcon: Icon(Icons.email_outlined),
+                    border: OutlineInputBorder(),
                   ),
-                  Text('📞 ${_buildingContext!.managerPhone}'),
-                  if (_buildingContext!.managerEmail.isNotEmpty)
-                    Text('✉️ ${_buildingContext!.managerEmail}'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '🔧 או פנה לתמיכה טכנית:',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green.withOpacity(0.3)),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'תמיכה טכנית ועד-לי',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.mark_email_read_outlined),
+                    onPressed: () async {
+                      final email = resetEmailController.text.trim();
+                      if (email.isEmpty || !email.contains('@')) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('אנא הזן אימייל תקין')), 
+                        );
+                        return;
+                      }
+                      try {
+                        await AuthService.sendPasswordResetEmail(email);
+                        if (mounted) {
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('נשלח קישור לאיפוס סיסמה אל $email'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(e.toString().replaceAll('Exception: ', ''))),
+                        );
+                      }
+                    },
+                    label: const Text('שלח קישור איפוס'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo,
+                      foregroundColor: Colors.white,
+                    ),
                   ),
-                  Text('📞 050-123-4567'),
-                  Text('✉️ support@vaadly.com'),
-                  Text('⏰ א׳-ה׳ 9:00-17:00'),
-                ],
-              ),
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+                const Text('או פנה למנהל הבניין:'),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.indigo.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.indigo.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _buildingContext!.managerName,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text('  ${_buildingContext!.managerPhone}'),
+                      if (_buildingContext!.managerEmail.isNotEmpty)
+                        Text('  ${_buildingContext!.managerEmail}'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  ' או פנה לתמיכה גכנית:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'תמיכה גכנית ועד-לי',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text('  050-123-4567'),
+                      Text('  support@vaadly.com'),
+                      Text('  9:00-17:00'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'הצוות יעזור לך לשחזר את הגישה לחשבון או ליצור גשבון גדש.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'הצוות יעזור לך לשחזר את הגישה לחשבון או ליצור חשבון חדש.',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
-            ),
-          ],
+          ),
         ),
         actions: [
           TextButton(

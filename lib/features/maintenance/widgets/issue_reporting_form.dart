@@ -206,7 +206,7 @@ class _IssueReportingFormState extends State<IssueReportingForm> {
 
             // Category
             DropdownButtonFormField<MaintenanceCategory>(
-              initialValue: _selectedCategory,
+              value: _selectedCategory,
               decoration: const InputDecoration(
                 labelText: 'קטגוריה *',
                 border: OutlineInputBorder(),
@@ -228,7 +228,7 @@ class _IssueReportingFormState extends State<IssueReportingForm> {
 
             // Priority
             DropdownButtonFormField<MaintenancePriority>(
-              initialValue: _selectedPriority,
+              value: _selectedPriority,
               decoration: const InputDecoration(
                 labelText: 'עדיפות *',
                 border: OutlineInputBorder(),
@@ -264,7 +264,7 @@ class _IssueReportingFormState extends State<IssueReportingForm> {
             // Unit Selection (if applicable)
             if (_availableUnits.isNotEmpty) ...[
               DropdownButtonFormField<String?>(
-                initialValue: _selectedUnitId,
+                value: _selectedUnitId,
                 decoration: const InputDecoration(
                   labelText: 'יחידה (אופציונלי)',
                   border: OutlineInputBorder(),

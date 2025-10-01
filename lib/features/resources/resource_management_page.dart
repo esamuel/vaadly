@@ -911,7 +911,7 @@ class _AddVendorDialogState extends State<_AddVendorDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<VendorCategory>(
-                initialValue: _category,
+                value: _category,
                 items: [
                   VendorCategory.plumbing,
                   VendorCategory.electrical,

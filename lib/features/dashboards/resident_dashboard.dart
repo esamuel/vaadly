@@ -4,6 +4,7 @@ import '../../core/services/auth_service.dart';
 import '../../core/services/building_context_service.dart';
 import '../auth/auth_screen.dart';
 import '../maintenance/report_issue_screen.dart';
+import '../buildings/building_selector_page.dart';
 
 class ResidentDashboard extends StatefulWidget {
   const ResidentDashboard({super.key});
@@ -109,6 +110,16 @@ class _ResidentDashboardState extends State<ResidentDashboard> {
         ),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
+          IconButton(
+            tooltip: 'החלף בניין',
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const BuildingSelectorPage()),
+              );
+              if (mounted) setState(() {});
+            },
+            icon: const Icon(Icons.swap_horiz),
+          ),
           PopupMenuButton<String>(
             icon: CircleAvatar(
               backgroundColor: Colors.teal.withOpacity(0.2),

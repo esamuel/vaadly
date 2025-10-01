@@ -28,6 +28,28 @@ class AuthService {
     }
   }
 
+  // Send password reset email via Firebase Auth
+  static Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      final auth = fb_auth.FirebaseAuth.instance;
+      await auth.sendPasswordResetEmail(email: email.toLowerCase().trim());
+      print('✉️ Password reset email sent to $email');
+    } on fb_auth.FirebaseAuthException catch (e) {
+      // Provide friendly messages
+      switch (e.code) {
+        case 'invalid-email':
+          throw Exception('כתובת אימייל לא תקינה');
+        case 'user-not-found':
+          throw Exception('לא נמצא משתמש עם האימייל הזה');
+        default:
+          throw Exception('שגיאה בשליחת קישור לאיפוס סיסמה: ${e.message}');
+      }
+    } catch (e) {
+      print('❌ sendPasswordResetEmail failed: $e');
+      rethrow;
+    }
+  }
+
   // Simple email-based authentication (for demo purposes)
   static Future<VaadlyUser?> signInWithEmail(
       String email, String password) async {
@@ -39,21 +61,53 @@ class AuthService {
         throw Exception('Password must be at least 6 characters');
       }
 
-      // Query user by email (app-level profile)
-      final userQuery = await _firestore
+      // Query all profiles by email (can exist multiple: owner + committee)
+      final userQueryAll = await _firestore
           .collection('users')
           .where('email', isEqualTo: email.toLowerCase().trim())
           .where('isActive', isEqualTo: true)
-          .limit(1)
           .get();
 
-      if (userQuery.docs.isEmpty) {
+      if (userQueryAll.docs.isEmpty) {
         throw Exception('User not found or inactive');
       }
 
-      final userDoc = userQuery.docs.first;
-      print('🔍 Raw user data from Firestore: ${userDoc.data()}');
-      final user = VaadlyUser.fromFirestore(userDoc);
+      // Choose the best matching profile
+      final candidates = userQueryAll.docs
+          .map((d) => VaadlyUser.fromFirestore(d))
+          .toList();
+
+      VaadlyUser user = candidates.first;
+      // If building context is available, prefer a profile with access to it
+      try {
+        final ctxId = BuildingContextService.buildingId;
+        final ctxCode = BuildingContextService.currentBuilding?.buildingCode;
+        final byAccess = candidates.where((u) {
+          final a = u.buildingAccess;
+          return a.containsKey('all') ||
+              (ctxId != null && a.containsKey(ctxId)) ||
+              (ctxCode != null && a.containsKey(ctxCode));
+        }).toList();
+        if (byAccess.isNotEmpty) {
+          // Prefer admin access over read
+          byAccess.sort((a, b) {
+            final aid = a.buildingAccess[ctxId ?? ''] ?? a.buildingAccess[ctxCode ?? ''] ?? '';
+            final bid = b.buildingAccess[ctxId ?? ''] ?? b.buildingAccess[ctxCode ?? ''] ?? '';
+            if (aid == 'admin' && bid != 'admin') return -1;
+            if (bid == 'admin' && aid != 'admin') return 1;
+            return 0;
+          });
+          user = byAccess.first;
+        } else {
+          // Otherwise prefer committee over owner/resident
+          final committee = candidates.where((u) => u.isBuildingCommittee).toList();
+          if (committee.isNotEmpty) {
+            user = committee.first;
+          }
+        }
+      } catch (_) {}
+
+      print('🔍 Selected profile role: ${user.role}');
       print('🔍 Parsed user role: ${user.role}');
 
       // Ensure Firebase Auth session (for Firestore security rules)

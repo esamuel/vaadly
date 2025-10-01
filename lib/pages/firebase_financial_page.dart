@@ -102,7 +102,7 @@ class _FirebaseFinancialPageState extends State<FirebaseFinancialPage>
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               child: DropdownButtonFormField<String>(
-                initialValue: _selectedBuildingId,
+                value: _selectedBuildingId,
                 decoration: const InputDecoration(
                   labelText: 'בחר בניין',
                   border: OutlineInputBorder(),

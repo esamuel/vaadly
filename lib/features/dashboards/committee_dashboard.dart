@@ -7,6 +7,7 @@ import '../../services/firebase_resident_service.dart';
 import '../../core/models/building.dart';
 import '../../core/models/resident.dart';
 import '../auth/auth_screen.dart';
+import '../buildings/building_selector_page.dart';
 import '../management/resident_invitation_screen.dart';
 import '../residents/pages/residents_page.dart';
 import '../maintenance/maintenance_dashboard.dart';
@@ -14,6 +15,7 @@ import '../finance/financial_module/financial_dashboard.dart';
 import '../settings/building_settings_dashboard.dart';
 import '../resources/resource_management_page.dart';
 import '../../services/firebase_activity_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CommitteeDashboard extends StatefulWidget {
   const CommitteeDashboard({super.key});
@@ -134,9 +136,9 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
   @override
   Widget build(BuildContext context) {
     final user = AuthService.currentUser!;
-    final buildingId = user.accessibleBuildings.isNotEmpty
-        ? user.accessibleBuildings.first
-        : null;
+    // Prefer the explicit building context; fall back only if missing
+    final buildingId = BuildingContextService.buildingId ??
+        (user.accessibleBuildings.isNotEmpty ? user.accessibleBuildings.first : null);
 
     return Scaffold(
       appBar: AppBar(
@@ -153,6 +155,17 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
         ),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
+          IconButton(
+            tooltip: 'החלף בניין',
+            onPressed: () async {
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const BuildingSelectorPage()),
+              );
+              // After return, force reload to reflect context change
+              if (mounted) _loadData();
+            },
+            icon: const Icon(Icons.swap_horiz),
+          ),
           PopupMenuButton<String>(
             icon: CircleAvatar(
               backgroundColor: Colors.indigo.withOpacity(0.2),
@@ -656,10 +669,20 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
     }
   }
 
-  String _relativeTime(String isoDate) {
+  String _relativeTime(dynamic value) {
     try {
-      final dt = DateTime.parse(isoDate);
+      DateTime? dt;
+      if (value == null) return '';
+      if (value is DateTime) {
+        dt = value;
+      } else if (value is Timestamp) {
+        dt = value.toDate();
+      } else if (value is String) {
+        dt = DateTime.tryParse(value);
+      }
+      if (dt == null) return '';
       final diff = DateTime.now().difference(dt);
+      if (diff.inMinutes < 1) return 'הרגע';
       if (diff.inMinutes < 60) return 'לפני ${diff.inMinutes} דק׳';
       if (diff.inHours < 24) return 'לפני ${diff.inHours} שע׳';
       return 'לפני ${diff.inDays} ימים';
@@ -667,4 +690,5 @@ class _CommitteeDashboardState extends State<CommitteeDashboard> {
       return '';
     }
   }
+
 }

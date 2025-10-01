@@ -40,7 +40,7 @@ class VaadlyMainDashboard extends StatelessWidget {
           centerTitle: true,
           elevation: 2,
         ),
-        cardTheme: CardThemeData(
+        cardTheme: CardTheme(
           elevation: 2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -567,7 +567,7 @@ class _VaadlyDashboardPageState extends State<VaadlyDashboardPage> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: DropdownButtonFormField<Building>(
-                            initialValue: _selectedBuilding,
+                            value: _selectedBuilding,
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(
