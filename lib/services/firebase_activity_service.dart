@@ -66,4 +66,44 @@ class FirebaseActivityService {
           return items;
         });
   }
+
+  // One-off migration: populate userName in asset assignment activities
+  static Future<int> migrateActivityUserNames(String buildingId) async {
+    try {
+      final coll = _firestore.collection('building_activities');
+      final snap = await coll.where('buildingId', isEqualTo: buildingId).get();
+      int updated = 0;
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        if (data['type'] != 'asset_assigned') continue;
+        final extra = (data['extra'] as Map?)?.cast<String, dynamic>() ?? {};
+        final existingName = extra['userName'] as String?;
+        final userId = extra['userId'] as String?;
+        if ((existingName == null || existingName.isEmpty) && userId != null && userId.isNotEmpty) {
+          try {
+            final res = await _firestore.collection('residents').doc(userId).get();
+            if (res.exists) {
+              final r = res.data()!;
+              final first = (r['firstName'] ?? '').toString();
+              final last = (r['lastName'] ?? '').toString();
+              final fullName = (first + ' ' + last).trim();
+              if (fullName.isNotEmpty) {
+                final newSubtitle = 'מס׳ ${extra['number'] ?? ''}, לדייר $fullName';
+                await doc.reference.update({
+                  'subtitle': newSubtitle,
+                  'extra.userName': fullName,
+                  'updatedAt': FieldValue.serverTimestamp(),
+                });
+                updated++;
+              }
+            }
+          } catch (_) {}
+        }
+      }
+      return updated;
+    } catch (e) {
+      print('❌ migrateActivityUserNames error: $e');
+      return 0;
+    }
+  }
 }

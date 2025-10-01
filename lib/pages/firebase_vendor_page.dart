@@ -960,17 +960,126 @@ class _FirebaseVendorPageState extends State<FirebaseVendorPage>
   }
 
   void _editVendor(Vendor vendor) {
+    final nameCtrl = TextEditingController(text: vendor.name);
+    final contactCtrl = TextEditingController(text: vendor.contactPerson);
+    final phoneCtrl = TextEditingController(text: vendor.phone);
+    final emailCtrl = TextEditingController(text: vendor.email ?? '');
+    final cityCtrl = TextEditingController(text: vendor.city);
+    final rateCtrl = TextEditingController(text: vendor.hourlyRate?.toStringAsFixed(0) ?? '');
+    VendorStatus status = vendor.status;
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('ערוך ספק: ${vendor.name}'),
-        content: const Text('פונקציונליות זו תתווסף בגרסה הבאה'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('סגור'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('ערוך ספק: ${vendor.name}'),
+          content: SizedBox(
+            width: 500,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: 'שם ספק'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: contactCtrl,
+                    decoration: const InputDecoration(labelText: 'איש קשר'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: phoneCtrl,
+                    decoration: const InputDecoration(labelText: 'טלפון'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: emailCtrl,
+                    decoration: const InputDecoration(labelText: 'אימייל'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: cityCtrl,
+                    decoration: const InputDecoration(labelText: 'עיר'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: rateCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'תעריף לשעה (₪)'),
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Wrap(
+                      spacing: 8,
+                      children: VendorStatus.values.map((s) => ChoiceChip(
+                        label: Text(_getStatusDisplay(s)),
+                        selected: status == s,
+                        onSelected: (_) => setState(() => status = s),
+                      )).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('בטל'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final updated = Vendor(
+                  id: vendor.id,
+                  buildingId: vendor.buildingId,
+                  name: nameCtrl.text.trim().isEmpty ? vendor.name : nameCtrl.text.trim(),
+                  contactPerson: contactCtrl.text.trim().isEmpty ? vendor.contactPerson : contactCtrl.text.trim(),
+                  phone: phoneCtrl.text.trim().isEmpty ? vendor.phone : phoneCtrl.text.trim(),
+                  email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
+                  website: vendor.website,
+                  address: vendor.address,
+                  city: cityCtrl.text.trim().isEmpty ? vendor.city : cityCtrl.text.trim(),
+                  postalCode: vendor.postalCode,
+                  country: vendor.country,
+                  categories: vendor.categories,
+                  status: status,
+                  licenseNumber: vendor.licenseNumber,
+                  insuranceInfo: vendor.insuranceInfo,
+                  hourlyRate: rateCtrl.text.trim().isEmpty ? vendor.hourlyRate : double.tryParse(rateCtrl.text.trim()),
+                  rating: vendor.rating,
+                  completedJobs: vendor.completedJobs,
+                  totalJobs: vendor.totalJobs,
+                  notes: vendor.notes,
+                  photoUrls: vendor.photoUrls,
+                  documentUrls: vendor.documentUrls,
+                  createdAt: vendor.createdAt,
+                  updatedAt: DateTime.now(),
+                  isActive: vendor.isActive,
+                );
+                final ok = await FirebaseVendorService.updateVendor(vendor.id, updated);
+                if (ok) {
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                    _loadData();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('הספק עודכן בהצלחה'), backgroundColor: Colors.green),
+                    );
+                  }
+                } else {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('עדכון הספק נכשל'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              child: const Text('שמור'),
+            ),
+          ],
+        ),
       ),
     );
   }

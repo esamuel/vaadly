@@ -10,6 +10,7 @@ import '../../main_vaadly.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:vaadly/core/services/auth_service.dart';
 import 'package:vaadly/core/config/app_links.dart';
+import 'package:vaadly/services/firebase_activity_service.dart';
 
 /// App Owner Dashboard - Your main SaaS business control center
 /// This is where YOU manage your entire Vaadly platform
@@ -249,6 +250,11 @@ class _AppOwnerDashboardState extends State<AppOwnerDashboard> {
                             icon: const Icon(Icons.link),
                             label: const Text('Generate Committee Link'),
                           ),
+                          OutlinedButton.icon(
+                            onPressed: _isProcessing ? null : _migrateActivityNames,
+                            icon: const Icon(Icons.history_toggle_off),
+                            label: const Text('Migrate Activity Names'),
+                          ),
                         ],
                       ),
                     ],
@@ -332,6 +338,44 @@ class _AppOwnerDashboardState extends State<AppOwnerDashboard> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed: $e')),
       );
+    } finally {
+      setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _migrateActivityNames() async {
+    final codeOrId = _buildingController.text.trim();
+    if (codeOrId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter building code or id first')),
+      );
+      return;
+    }
+    setState(() => _isProcessing = true);
+    try {
+      // Resolve id
+      String buildingId = codeOrId;
+      try {
+        final q = await FirebaseFirestore.instance
+            .collection('buildings')
+            .where('buildingCode', isEqualTo: codeOrId)
+            .limit(1)
+            .get();
+        if (q.docs.isNotEmpty) buildingId = q.docs.first.id;
+      } catch (_) {}
+
+      final updated = await FirebaseActivityService.migrateActivityUserNames(buildingId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Updated $updated activity records')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Migration failed: $e'), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       setState(() => _isProcessing = false);
     }
