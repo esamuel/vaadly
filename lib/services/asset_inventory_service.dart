@@ -77,6 +77,7 @@ class AssetInventoryService {
     required String buildingId,
     required String number, // e.g. '7'
     required String userId,
+    String? userName,
     String? unitId,
   }) async {
     final docId = _formatId('s', int.parse(number));
@@ -97,10 +98,13 @@ class AssetInventoryService {
       buildingId: buildingId,
       type: 'asset_assigned',
       title: '${typeLabel('storage')} הוקצה',
-      subtitle: 'מס׳ $number, למשתמש $userId',
+      subtitle: userName != null && userName.isNotEmpty
+          ? 'מס׳ $number, לדייר $userName'
+          : 'מס׳ $number, למשתמש $userId',
       extra: {
         'number': number,
         'userId': userId,
+        'userName': userName,
         'unitId': unitId,
         'assetType': 'storage'
       },
@@ -137,6 +141,7 @@ class AssetInventoryService {
     required String buildingId,
     required String number,
     required String userId,
+    String? userName,
     String? unitId,
   }) async {
     final docId = _formatId('p', int.parse(number));
@@ -156,10 +161,13 @@ class AssetInventoryService {
       buildingId: buildingId,
       type: 'asset_assigned',
       title: '${typeLabel('parking')} הוקצה',
-      subtitle: 'מס׳ $number, למשתמש $userId',
+      subtitle: userName != null && userName.isNotEmpty
+          ? 'מס׳ $number, לדייר $userName'
+          : 'מס׳ $number, למשתמש $userId',
       extra: {
         'number': number,
         'userId': userId,
+        'userName': userName,
         'unitId': unitId,
         'assetType': 'parking'
       },

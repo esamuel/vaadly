@@ -291,11 +291,13 @@ class _AssetsList extends StatelessWidget {
     if (resident == null) return;
 
     try {
+      final displayName = '${resident.firstName} ${resident.lastName}'.trim();
       if (type == AssetType.storage) {
         await AssetInventoryService.assignStorage(
           buildingId: buildingId,
           number: number,
           userId: resident.id,
+          userName: displayName,
           unitId: resident.apartmentNumber,
         );
       } else {
@@ -303,6 +305,7 @@ class _AssetsList extends StatelessWidget {
           buildingId: buildingId,
           number: number,
           userId: resident.id,
+          userName: displayName,
           unitId: resident.apartmentNumber,
         );
       }
